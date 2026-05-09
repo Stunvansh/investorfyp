@@ -37,7 +37,8 @@ info "=== InvestorFYP Deployment starting ==="
 # ── 1. System packages ────────────────────────────────────────────────────────
 info "Installing system packages..."
 apt-get update -q
-apt-get install -y -q python3 python3-pip python3-venv nodejs npm nginx git curl
+apt-get install -y -q python3 python3-pip python3-venv nginx git curl
+# nodejs is installed separately via nodesource (includes npm); skip apt npm to avoid conflicts
 
 # node LTS via nodesource if node < 20 (Vite requires 20.19+ or 22.12+)
 NODE_VER=$(node -v 2>/dev/null | grep -oP '(?<=v)\d+' | head -1 || echo "0")
