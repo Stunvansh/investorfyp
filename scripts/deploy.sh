@@ -99,6 +99,9 @@ info "Running Django migrations..."
 cd "$DEPLOY_DIR/backend"
 python manage.py migrate --noinput
 
+info "Seeding demo users (idempotent – skips existing)..."
+python manage.py seed_demo_users
+
 info "Collecting static files..."
 python manage.py collectstatic --noinput --clear 2>/dev/null || true
 
