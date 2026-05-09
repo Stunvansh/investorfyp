@@ -1,0 +1,2011 @@
+import { useEffect, useMemo, useState } from 'react'
+import type { FormEvent } from 'react'
+import {
+  AlertTriangle,
+  ArrowRight,
+  BadgeCheck,
+  Bell,
+  Briefcase,
+  CircleHelp,
+  Clock3,
+  DollarSign,
+  Download,
+  Eye,
+  FileText,
+  Filter,
+  Globe2,
+  History,
+  Landmark,
+  LayoutDashboard,
+  LogOut,
+  MessageSquare,
+  PlusCircle,
+  RefreshCcw,
+  Rocket,
+  Search,
+  SendHorizontal,
+  Settings,
+  ShieldCheck,
+  TrendingUp,
+  Users,
+  Wallet,
+  XCircle,
+} from 'lucide-react'
+
+import {
+  approveProposal,
+  checkHealth,
+  clearToken,
+  createPaymentIntent,
+  createProposal,
+  createSignal,
+  createTransaction,
+  getChatRooms,
+  getEscrowSummary,
+  getMe,
+  getMessages,
+  getPaymentStatus,
+  getProposals,
+  getSignals,
+  getTransactions,
+  getUnreadCount,
+  getUsers,
+  getWalletBalance,
+  login,
+  markMessageAsRead,
+  patchMe,
+  patchProposal,
+  patchUserFlags,
+  register,
+  saveToken,
+  sendMessage,
+  updateProposalMilestone,
+  updateSignalStatus,
+} from './lib/api'
+import type { ChatRoom, Message, Proposal, Signal, Tx, User } from './lib/api'
+import './App.css'
+
+type Page = 'landing' | 'auth' | 'profile' | 'dashboard' | 'proposals' | 'wallet' | 'chat' | 'admin'
+
+function formatMoney(value: string | number | null | undefined) {
+  const numeric = Number(value ?? 0)
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(Number.isFinite(numeric) ? numeric : 0)
+}
+
+function initials(label: string) {
+  return label
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('')
+}
+
+function milestoneProgress(milestone: Proposal['milestone']) {
+  if (milestone === 'Completed') return 100
+  if (milestone === 'In Progress') return 58
+  return 18
+}
+
+function statusTone(status: string) {
+  if (status === 'approved' || status === 'accepted' || status === 'completed') return 'tone-success'
+  if (status === 'pending') return 'tone-info'
+  if (status === 'rejected' || status === 'refund' || status === 'refunded') return 'tone-danger'
+  return 'tone-neutral'
+}
+
+function actionTone(action: string) {
+  if (action === 'invest' || action === 'release') return 'tone-info'
+  if (action === 'refund') return 'tone-danger'
+  return 'tone-neutral'
+}
+
+function compactText(value: string | null | undefined) {
+  return String(value ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function App() {
+  const [apiStatus, setApiStatus] = useState<'checking' | 'online' | 'offline'>('checking')
+  const [page, setPage] = useState<Page>('landing')
+  const [adminView, setAdminView] = useState<'users' | 'proposals' | 'escrow' | 'logs'>('users')
+  const [authMode, setAuthMode] = useState<'signup' | 'login'>('login')
+  const [authRole, setAuthRole] = useState<'entrepreneur' | 'investor'>('entrepreneur')
+  const [workspaceQuery, setWorkspaceQuery] = useState('')
+  const [investorProposalFilter, setInvestorProposalFilter] = useState<'all' | 'approved' | 'pending'>('all')
+  const [adminUserFilter, setAdminUserFilter] = useState<'all' | 'active' | 'frozen'>('all')
+  const [adminProposalFilter, setAdminProposalFilter] = useState<'all' | 'pending' | 'approved'>('all')
+  const [showAllTransactions, setShowAllTransactions] = useState(false)
+
+  const [user, setUser] = useState<User | null>(null)
+  const [users, setUsers] = useState<User[]>([])
+
+  const [proposals, setProposals] = useState<Proposal[]>([])
+  const [signals, setSignals] = useState<Signal[]>([])
+  const [transactions, setTransactions] = useState<Tx[]>([])
+  const [chats, setChats] = useState<ChatRoom[]>([])
+  const [messages, setMessages] = useState<Message[]>([])
+  const [selectedProposalId, setSelectedProposalId] = useState<number | null>(null)
+  const [walletBalance, setWalletBalance] = useState<{
+    max_balance: string
+    invested_total: string
+    refunded_total: string
+    in_escrow: string
+    available_balance: string
+  } | null>(null)
+  const [escrowSummary, setEscrowSummary] = useState<{ total_escrow: string; proposals: Array<{ proposal_id: number; title: string; escrow: string }> } | null>(null)
+  const [unreadTotal, setUnreadTotal] = useState(0)
+
+  const [messageDraft, setMessageDraft] = useState('')
+  const [statusText, setStatusText] = useState('')
+
+  const [authForm, setAuthForm] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    password: '',
+  })
+
+  const [proposalForm, setProposalForm] = useState({
+    title: '',
+    startup_details: '',
+    description: '',
+    category: 'FinTech',
+    required_funding: 10000,
+    timeline: '3 months',
+    document_name: '',
+    pitch_video_url: '',
+  })
+
+  const [walletForm, setWalletForm] = useState({
+    method: 'virtual-escrow' as 'virtual-escrow' | 'stripe',
+    proposal: 0,
+    amount: 1000,
+  })
+
+  const [pendingIntentId, setPendingIntentId] = useState('')
+
+  const investorRequests = useMemo(() => {
+    if (!user || user.role !== 'entrepreneur') return []
+    return signals.filter((signal) => signal.status === 'pending')
+  }, [signals, user])
+
+  const selectedProposal = useMemo(
+    () => proposals.find((proposal) => proposal.id === selectedProposalId) ?? null,
+    [proposals, selectedProposalId],
+  )
+
+  const approvedProposals = useMemo(
+    () => proposals.filter((proposal) => proposal.status === 'approved'),
+    [proposals],
+  )
+
+  const pendingProposals = useMemo(
+    () => proposals.filter((proposal) => proposal.status === 'pending'),
+    [proposals],
+  )
+
+  const normalizedQuery = useMemo(() => workspaceQuery.trim().toLowerCase(), [workspaceQuery])
+
+  const visibleProposals = useMemo(() => {
+    if (!normalizedQuery) return proposals
+    return proposals.filter((proposal) =>
+      [proposal.title, proposal.category, proposal.startup_details, proposal.description]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(normalizedQuery)),
+    )
+  }, [proposals, normalizedQuery])
+
+  const visibleApprovedProposals = useMemo(
+    () => approvedProposals.filter((proposal) => visibleProposals.some((candidate) => candidate.id === proposal.id)),
+    [approvedProposals, visibleProposals],
+  )
+
+  const filteredInvestorMarketplaceProposals = useMemo(() => {
+    if (investorProposalFilter === 'approved') {
+      return visibleProposals.filter((proposal) => proposal.status === 'approved')
+    }
+    if (investorProposalFilter === 'pending') {
+      return visibleProposals.filter((proposal) => proposal.status === 'pending')
+    }
+    return visibleProposals
+  }, [visibleProposals, investorProposalFilter])
+
+  const visibleChats = useMemo(() => {
+    if (!normalizedQuery) return chats
+    return chats.filter((chat) => [chat.proposal_title, chat.last_message].filter(Boolean).some((value) => String(value).toLowerCase().includes(normalizedQuery)))
+  }, [chats, normalizedQuery])
+
+  const filteredAdminUsers = useMemo(() => {
+    const byStatus =
+      adminUserFilter === 'active'
+        ? users.filter((entry) => !entry.frozen)
+        : adminUserFilter === 'frozen'
+          ? users.filter((entry) => entry.frozen)
+          : users
+
+    if (!normalizedQuery) return byStatus
+    return byStatus.filter((entry) =>
+      [entry.email, entry.first_name, entry.last_name, entry.role].filter(Boolean).some((value) => String(value).toLowerCase().includes(normalizedQuery)),
+    )
+  }, [users, adminUserFilter, normalizedQuery])
+
+  const filteredAdminProposals = useMemo(() => {
+    const byStatus =
+      adminProposalFilter === 'pending'
+        ? proposals.filter((proposal) => proposal.status === 'pending')
+        : adminProposalFilter === 'approved'
+          ? proposals.filter((proposal) => proposal.status === 'approved')
+          : proposals
+
+    if (!normalizedQuery) return byStatus
+    return byStatus.filter((proposal) =>
+      [proposal.title, proposal.category, proposal.startup_details, proposal.description]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(normalizedQuery)),
+    )
+  }, [proposals, adminProposalFilter, normalizedQuery])
+
+  const filteredEscrowTransactions = useMemo(() => {
+    if (!normalizedQuery) return transactions
+    return transactions.filter((transaction) => {
+      const linkedProposal = proposals.find((proposal) => proposal.id === transaction.proposal)
+      return [transaction.action, transaction.method, linkedProposal?.title, `txn-${transaction.id}`]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(normalizedQuery))
+    })
+  }, [transactions, proposals, normalizedQuery])
+
+  const recentSystemLogs = useMemo(() => {
+    const txLogs = transactions.slice(0, 8).map((transaction) => ({
+      id: `tx-${transaction.id}`,
+      category: 'Escrow Transaction',
+      detail: `${transaction.action.toUpperCase()} on proposal #${transaction.proposal}`,
+      meta: `${formatMoney(transaction.amount)} via ${transaction.method}`,
+    }))
+
+    const signalLogs = signals.slice(0, 6).map((signal) => ({
+      id: `sg-${signal.id}`,
+      category: 'Investor Signal',
+      detail: `${signal.signal_type} signal for proposal #${signal.proposal}`,
+      meta: `Status: ${signal.status}`,
+    }))
+
+    const proposalLogs = proposals.slice(0, 6).map((proposal) => ({
+      id: `pp-${proposal.id}`,
+      category: 'Proposal Update',
+      detail: `${proposal.title}`,
+      meta: `Status: ${proposal.status}`,
+    }))
+
+    return [...txLogs, ...signalLogs, ...proposalLogs].slice(0, 14)
+  }, [transactions, signals, proposals])
+
+  const totalFundingRaised = useMemo(
+    () => proposals.reduce((sum, proposal) => sum + Number(proposal.required_funding ?? 0), 0),
+    [proposals],
+  )
+
+  const activeUserName = useMemo(() => {
+    if (!user) return ''
+    const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ').trim()
+    return fullName || user.email.split('@')[0]
+  }, [user])
+
+  async function refreshAll(activeUser: User) {
+    try {
+      const [p, s, t, c, unread, escrow] = await Promise.all([
+        getProposals(),
+        getSignals(),
+        getTransactions(),
+        getChatRooms(),
+        getUnreadCount(),
+        getEscrowSummary(),
+      ])
+      setProposals(p)
+      setSignals(s)
+      setTransactions(t)
+      setChats(c)
+      setUnreadTotal(unread.total)
+      setEscrowSummary(escrow)
+
+      if (activeUser.role === 'investor') {
+        const wb = await getWalletBalance()
+        setWalletBalance(wb)
+      }
+
+      if (activeUser.role === 'admin') {
+        const allUsers = await getUsers()
+        setUsers(allUsers)
+      }
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  useEffect(() => {
+    checkHealth()
+      .then(() => setApiStatus('online'))
+      .catch(() => setApiStatus('offline'))
+  }, [])
+
+  useEffect(() => {
+    const existingToken = localStorage.getItem('ventureledger_access_token')
+    if (!existingToken) {
+      setUser(null)
+      return
+    }
+
+    getMe()
+      .then((me) => {
+        setUser(me)
+        setPage(me.role === 'admin' ? 'admin' : 'dashboard')
+        refreshAll(me)
+      })
+      .catch(() => {
+        setUser(null)
+      })
+  }, [])
+
+  async function onAuthSubmit(event: FormEvent) {
+    event.preventDefault()
+    setStatusText('')
+
+    try {
+      if (authMode === 'signup') {
+        await register({ ...authForm, role: authRole })
+      }
+
+      const token = await login({ email: authForm.email, password: authForm.password })
+      saveToken(token.access)
+      const me = await getMe()
+      setUser(me)
+      setPage(me.role === 'admin' ? 'admin' : 'dashboard')
+      await refreshAll(me)
+      setStatusText('Authentication successful.')
+    } catch (error) {
+      console.error(error)
+      setStatusText('Authentication failed. Please verify credentials.')
+    }
+  }
+
+  function onLogout() {
+    clearToken()
+    setUser(null)
+    setUsers([])
+    setProposals([])
+    setSignals([])
+    setTransactions([])
+    setChats([])
+    setMessages([])
+    setPage('landing')
+    setSelectedProposalId(null)
+    setAdminView('users')
+    setWorkspaceQuery('')
+  }
+
+  function navigateToAuth(role?: 'entrepreneur' | 'investor') {
+    if (role) setAuthRole(role)
+    setAuthMode('signup')
+    setPage('auth')
+  }
+
+  function onTopbarNotification() {
+    if (isAdmin) {
+      setPage('admin')
+      setAdminView('logs')
+      return
+    }
+    setPage('chat')
+  }
+
+  function onTopbarSettings() {
+    if (isAdmin) {
+      setPage('admin')
+      setAdminView('users')
+      return
+    }
+    setPage('profile')
+  }
+
+  function onTopbarHelp() {
+    setStatusText('Tip: use the top search bar to filter proposals, chats, users, and escrow records in real time.')
+  }
+
+  function onDownloadReport() {
+    const reportPayload = {
+      generatedAt: new Date().toISOString(),
+      summary: {
+        users: users.length,
+        proposals: proposals.length,
+        approvedProposals: approvedProposals.length,
+        pendingProposals: pendingProposals.length,
+        transactions: transactions.length,
+        totalEscrow: escrowSummary?.total_escrow ?? '0',
+      },
+      filters: {
+        search: workspaceQuery,
+        adminUserFilter,
+        adminProposalFilter,
+      },
+    }
+
+    const blob = new Blob([JSON.stringify(reportPayload, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `ventureledger-report-${Date.now()}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    setStatusText('Admin report downloaded.')
+  }
+
+  async function onSaveProfile(event: FormEvent) {
+    event.preventDefault()
+    if (!user) return
+
+    try {
+      const updated = await patchMe({
+        first_name: user.first_name,
+        last_name: user.last_name,
+        business_idea: user.business_idea,
+        funding_required: user.funding_required,
+        startup_documents: user.startup_documents,
+        investment_interest: user.investment_interest,
+        budget_range: user.budget_range,
+      })
+      setUser(updated)
+      setStatusText('Profile updated.')
+    } catch {
+      setStatusText('Failed to update profile.')
+    }
+  }
+
+  async function onSubmitProposal(event: FormEvent) {
+    event.preventDefault()
+    try {
+      await createProposal({ ...proposalForm, required_funding: String(proposalForm.required_funding) })
+      if (user) await refreshAll(user)
+      setStatusText('Proposal submitted for admin approval.')
+    } catch {
+      setStatusText('Failed to submit proposal.')
+    }
+  }
+
+  async function onSendInterest(proposalId: number) {
+    try {
+      await createSignal({ proposal: proposalId, signal_type: 'interest', message: 'Interested in discussing this opportunity.' })
+      if (user) await refreshAll(user)
+      setStatusText('Interest signal sent.')
+    } catch {
+      setStatusText('Could not send interest signal.')
+    }
+  }
+
+  async function onSignalDecision(signalId: number, decision: 'accepted' | 'rejected') {
+    try {
+      await updateSignalStatus(signalId, decision)
+      if (user) await refreshAll(user)
+      setStatusText(`Signal ${decision}.`)
+    } catch {
+      setStatusText('Failed to update investor request.')
+    }
+  }
+
+  async function onInvest(event: FormEvent) {
+    event.preventDefault()
+    if (!walletForm.proposal) {
+      setStatusText('Please select a proposal first.')
+      return
+    }
+    try {
+      if (walletForm.method === 'stripe') {
+        const intent = await createPaymentIntent({ proposal: walletForm.proposal, amount: walletForm.amount })
+        setPendingIntentId(intent.intent_id)
+        setStatusText(`Stripe intent created: ${intent.intent_id}. Complete confirmation on your Stripe-enabled client.`)
+      } else {
+        await createTransaction({
+          proposal: walletForm.proposal,
+          amount: walletForm.amount,
+          action: 'invest',
+          method: 'virtual-escrow',
+          notes: 'Investor escrow funding',
+        })
+        if (user) await refreshAll(user)
+        setStatusText('Funds held in escrow successfully.')
+      }
+    } catch {
+      setStatusText('Investment request failed.')
+    }
+  }
+
+  async function onCheckIntentStatus() {
+    if (!pendingIntentId) return
+    try {
+      const res = await getPaymentStatus(pendingIntentId)
+      setStatusText(`Intent ${res.intent_id} status: ${res.status}`)
+      if (user) await refreshAll(user)
+    } catch {
+      setStatusText('Could not fetch payment status.')
+    }
+  }
+
+  async function onAdminSettlement(proposalId: number, action: 'release' | 'refund') {
+    try {
+      await createTransaction({
+        proposal: proposalId,
+        amount: 1000,
+        action,
+        method: 'virtual-escrow',
+        notes: `Admin ${action}`,
+      })
+      if (user) await refreshAll(user)
+      setStatusText(`Settlement action '${action}' completed.`)
+    } catch {
+      setStatusText('Settlement action failed.')
+    }
+  }
+
+  async function openChat(proposalId: number) {
+    setSelectedProposalId(proposalId)
+    setPage('chat')
+    try {
+      const msgs = await getMessages(proposalId)
+      setMessages(msgs)
+      for (const message of msgs.filter((item) => !item.is_read)) {
+        await markMessageAsRead(message.id)
+      }
+      if (user) await refreshAll(user)
+    } catch {
+      setStatusText('Failed to load messages.')
+    }
+  }
+
+  async function onSendMessage(event: FormEvent) {
+    event.preventDefault()
+    const normalizedMessage = compactText(messageDraft)
+    if (!selectedProposalId || !normalizedMessage) return
+    try {
+      await sendMessage({ proposal: selectedProposalId, content: normalizedMessage })
+      setMessageDraft('')
+      const msgs = await getMessages(selectedProposalId)
+      setMessages(msgs)
+      if (user) await refreshAll(user)
+    } catch {
+      setStatusText('Unable to send message.')
+    }
+  }
+
+  async function onToggleUserFlag(target: User, field: 'verified' | 'frozen') {
+    try {
+      await patchUserFlags(target.id, { [field]: !target[field] })
+      if (user) await refreshAll(user)
+    } catch {
+      setStatusText('Failed to update user flags.')
+    }
+  }
+
+  async function onAdminApproveProposal(proposalId: number) {
+    try {
+      await approveProposal(proposalId)
+      if (user) await refreshAll(user)
+    } catch {
+      setStatusText('Unable to approve proposal.')
+    }
+  }
+
+  async function onAdminSetPending(proposalId: number) {
+    try {
+      await patchProposal(proposalId, { status: 'pending' })
+      if (user) await refreshAll(user)
+    } catch {
+      setStatusText('Unable to mark proposal pending.')
+    }
+  }
+
+  async function onMilestoneChange(proposalId: number, milestone: Proposal['milestone']) {
+    try {
+      await updateProposalMilestone(proposalId, milestone)
+      if (user) await refreshAll(user)
+    } catch {
+      setStatusText('Failed to update milestone.')
+    }
+  }
+
+  const isAuthed = Boolean(user)
+  const isAdmin = user?.role === 'admin'
+  const investorCapital = walletBalance ? formatMoney(walletBalance.available_balance) : formatMoney(0)
+  const investorEscrow = walletBalance ? formatMoney(walletBalance.in_escrow) : formatMoney(escrowSummary?.total_escrow)
+  const transactionVolume = transactions.reduce((sum, transaction) => sum + Number(transaction.amount ?? 0), 0)
+
+  return (
+    <div className={`app-shell ${isAuthed ? 'app-shell--authed' : 'app-shell--public'} ${user ? `role-${user.role}` : ''}`}>
+      {user && (
+        <aside className={`side-nav ${isAdmin ? 'side-nav--admin' : 'side-nav--workspace'}`}>
+          <div className="side-nav__brand">
+            <div className="brand-mark">{isAdmin ? <ShieldCheck size={20} /> : <Landmark size={20} />}</div>
+            <div>
+              <h2>{isAdmin ? 'VentureLedger' : user.role === 'entrepreneur' ? 'Growth Ventures' : 'InvestWise'}</h2>
+              <p>
+                {isAdmin
+                  ? 'Admin Control Panel'
+                  : user.role === 'entrepreneur'
+                    ? 'Series A Funding'
+                    : 'Investor Workspace'}
+              </p>
+            </div>
+          </div>
+
+          <nav className="side-nav__links">
+            {isAdmin ? (
+              <>
+                <button type="button" className={`nav-link ${page === 'landing' ? 'active' : ''}`} onClick={() => setPage('landing')}>
+                  <LayoutDashboard size={18} />
+                  <span>Dashboard</span>
+                </button>
+                <button type="button" className={`nav-link ${page === 'admin' && adminView === 'users' ? 'active' : ''}`} onClick={() => { setPage('admin'); setAdminView('users') }}>
+                  <Users size={18} />
+                  <span>User Management</span>
+                </button>
+                <button type="button" className={`nav-link ${page === 'admin' && adminView === 'proposals' ? 'active' : ''}`} onClick={() => { setPage('admin'); setAdminView('proposals') }}>
+                  <FileText size={18} />
+                  <span>Proposal Moderation</span>
+                </button>
+                <button type="button" className={`nav-link ${page === 'admin' && adminView === 'escrow' ? 'active' : ''}`} onClick={() => { setPage('admin'); setAdminView('escrow') }}>
+                  <Wallet size={18} />
+                  <span>Escrow Settlements</span>
+                </button>
+                <button type="button" className={`nav-link ${page === 'admin' && adminView === 'logs' ? 'active' : ''}`} onClick={() => { setPage('admin'); setAdminView('logs') }}>
+                  <History size={18} />
+                  <span>System Logs</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button" className={`nav-link ${page === 'dashboard' ? 'active' : ''}`} onClick={() => setPage('dashboard')}>
+                  <LayoutDashboard size={18} />
+                  <span>Dashboard</span>
+                </button>
+                <button type="button" className={`nav-link ${page === 'proposals' ? 'active' : ''}`} onClick={() => setPage('proposals')}>
+                  <FileText size={18} />
+                  <span>Proposals</span>
+                </button>
+                <button type="button" className={`nav-link ${page === 'wallet' ? 'active' : ''}`} onClick={() => setPage('wallet')}>
+                  <Wallet size={18} />
+                  <span>{user.role === 'investor' ? 'Invest' : 'Wallet'}</span>
+                </button>
+                <button type="button" className={`nav-link ${page === 'chat' ? 'active' : ''}`} onClick={() => setPage('chat')}>
+                  <MessageSquare size={18} />
+                  <span>Messages</span>
+                </button>
+                <button type="button" className={`nav-link ${page === 'profile' ? 'active' : ''}`} onClick={() => setPage('profile')}>
+                  <Settings size={18} />
+                  <span>Settings</span>
+                </button>
+              </>
+            )}
+          </nav>
+
+          <div className="side-nav__footer">
+            {!isAdmin ? (
+              <div className="side-nav__profile">
+                <div className="avatar-circle">{initials(activeUserName)}</div>
+                <div>
+                  <strong>{activeUserName}</strong>
+                  <span>{user.role === 'entrepreneur' ? 'Founder & CEO' : 'Investor'}</span>
+                </div>
+              </div>
+            ) : (
+              <button type="button" className="nav-cta" onClick={onDownloadReport}>
+                <PlusCircle size={18} />
+                <span>New Report</span>
+              </button>
+            )}
+
+            <button type="button" className="nav-link nav-link--ghost" onClick={() => user && refreshAll(user)}>
+              <RefreshCcw size={18} />
+              <span>Refresh Data</span>
+            </button>
+            <button type="button" className="nav-link nav-link--danger" onClick={onLogout}>
+              <LogOut size={18} />
+              <span>Logout</span>
+            </button>
+          </div>
+        </aside>
+      )}
+
+      <div className="app-content">
+        <header className={`topbar ${isAuthed ? 'topbar--authed' : 'topbar--public'} ${isAdmin ? 'topbar--admin' : ''}`}>
+          {isAuthed ? (
+            <>
+              <div className="topbar__left">
+                <div className="topbar__product">{isAdmin ? 'VentureLedger' : user?.role === 'entrepreneur' ? 'FinVent' : 'InvestWise'}</div>
+                <label className="search-shell" aria-label="Search workspace">
+                  <Search size={16} />
+                  <input
+                    placeholder={isAdmin ? 'Search accounts, transactions, or logs...' : 'Search proposals, startups, or founders...'}
+                    type="text"
+                    value={workspaceQuery}
+                    onChange={(e) => setWorkspaceQuery(e.target.value)}
+                  />
+                </label>
+              </div>
+              <div className="topbar__right">
+                {!isAdmin && user?.role === 'entrepreneur' && (
+                  <button type="button" className="topbar-cta topbar-cta--soft" onClick={() => setPage('chat')}>
+                    <Users size={16} />
+                    <span>Invite Investor</span>
+                  </button>
+                )}
+                {!isAdmin && user?.role === 'entrepreneur' && (
+                  <button type="button" className="topbar-cta" onClick={() => setPage('proposals')}>
+                    <PlusCircle size={16} />
+                    <span>Create New Proposal</span>
+                  </button>
+                )}
+                <button type="button" className="topbar-icon" onClick={onTopbarNotification} title="Notifications"><Bell size={16} /></button>
+                <button type="button" className="topbar-icon" onClick={onTopbarSettings} title="Settings"><Settings size={16} /></button>
+                <button type="button" className="topbar-icon" onClick={onTopbarHelp} title="Help"><CircleHelp size={16} /></button>
+                <div className="topbar-user">
+                  <div className="avatar-circle avatar-circle--small">{initials(activeUserName)}</div>
+                  <div>
+                    <strong>{activeUserName}</strong>
+                    <span>{isAdmin ? 'System Architect' : user?.role ?? ''}</span>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="public-brand">
+                <Globe2 size={18} />
+                <span>VentureLedger Exchange</span>
+              </div>
+              <div className="public-topbar__right">
+                <span className={`api-pill api-pill--${apiStatus}`}>API: {apiStatus}</span>
+                <button type="button" className="public-login" onClick={() => { setPage('auth'); setAuthMode('login') }}>
+                  Log In
+                </button>
+              </div>
+            </>
+          )}
+        </header>
+
+        {statusText && <div className="status-banner">{statusText}</div>}
+
+        <main className="main-content">
+          {page === 'landing' && (
+            <section className="public-page">
+              <section className="landing-hero">
+                <div
+                  className="landing-hero__media"
+                  style={{
+                    backgroundImage:
+                      "linear-gradient(180deg, rgba(68,96,138,0.08), rgba(68,96,138,0.12)), url('https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1200&q=80')",
+                  }}
+                />
+                <div className="landing-hero__copy">
+                  <span className="landing-eyebrow">Institutional-Grade Venture Capital</span>
+                  <h1>The Future of Startup Capital</h1>
+                  <p>
+                    VentureLedger Exchange connects elite entrepreneurs with professional investors through a secure,
+                    transparent, and institutional-grade platform designed for long-term growth and liquidity.
+                  </p>
+                  <div className="landing-actions">
+                    <button type="button" className="button-primary" onClick={() => navigateToAuth('entrepreneur')}>
+                      Get Started Now
+                    </button>
+                    <button type="button" className="button-secondary" onClick={() => setPage('auth')}>
+                      View Marketplace
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              <section className="landing-section landing-section--alt">
+                <div className="section-heading section-heading--center">
+                  <h2>Tailored for Professional Growth</h2>
+                  <p>
+                    Our exchange provides the infrastructure needed for the next generation of venture capital. We bridge
+                    the gap between visionary founders and institutional capital.
+                  </p>
+                </div>
+                <div className="feature-grid">
+                  <article className="feature-card">
+                    <div className="feature-icon"><Rocket size={22} /></div>
+                    <h3>For Entrepreneurs</h3>
+                    <p>
+                      Access a curated network of accredited investors, streamline your cap table management, and gain
+                      secondary liquidity options while maintaining control.
+                    </p>
+                    <ul>
+                      <li>Structured data rooms</li>
+                      <li>Direct investor communication</li>
+                    </ul>
+                  </article>
+                  <article className="feature-card">
+                    <div className="feature-icon"><TrendingUp size={22} /></div>
+                    <h3>For Investors</h3>
+                    <p>
+                      Diversify your portfolio with vetted opportunities, institutional-grade analytics, and standardized
+                      reporting across all your venture holdings.
+                    </p>
+                    <ul>
+                      <li>Automated compliance (KYC / AML)</li>
+                      <li>Real-time portfolio tracking</li>
+                    </ul>
+                  </article>
+                </div>
+              </section>
+
+              <section className="landing-section">
+                <div className="section-heading section-heading--center">
+                  <h2>The VentureLedger Protocol</h2>
+                </div>
+                <div className="protocol-grid">
+                  {[
+                    {
+                      step: '1',
+                      title: 'Verification',
+                      text: 'Rigorous vetting process for startups and accreditation verification for all incoming capital partners.',
+                    },
+                    {
+                      step: '2',
+                      title: 'Exchange',
+                      text: 'Execute primary funding rounds or trade secondary equity on a structured, auditable exchange workflow.',
+                    },
+                    {
+                      step: '3',
+                      title: 'Settlement',
+                      text: 'Secure, ledger-based settlement ensures transparent transfer of ownership and capital with escrow control.',
+                    },
+                  ].map((item) => (
+                    <article className="protocol-step" key={item.step}>
+                      <div className="protocol-step__badge">{item.step}</div>
+                      <h3>{item.title}</h3>
+                      <p>{item.text}</p>
+                    </article>
+                  ))}
+                </div>
+              </section>
+
+              <section className="landing-section landing-section--alt">
+                <div className="section-heading section-heading--center">
+                  <h2>Ready to Enter the Exchange?</h2>
+                  <p>Choose your path and begin the application process today.</p>
+                </div>
+                <div className="entry-grid">
+                  <article className="entry-card">
+                    <div>
+                      <h3>Join as Entrepreneur</h3>
+                      <p>
+                        Position your company in front of global institutional capital with a seamless fundraising
+                        infrastructure and secondary market tools.
+                      </p>
+                    </div>
+                    <button type="button" className="button-primary" onClick={() => navigateToAuth('entrepreneur')}>
+                      Apply to List <ArrowRight size={16} />
+                    </button>
+                  </article>
+                  <article className="entry-card">
+                    <div>
+                      <h3>Join as Investor</h3>
+                      <p>
+                        Gain exclusive access to high-growth private equity, diligence workflows, and real-time portfolio
+                        analytics built for modern allocators.
+                      </p>
+                    </div>
+                    <button type="button" className="button-secondary" onClick={() => navigateToAuth('investor')}>
+                      Request Access <ArrowRight size={16} />
+                    </button>
+                  </article>
+                </div>
+              </section>
+
+              <footer className="landing-footer">
+                <div className="landing-footer__brand">
+                  <h3>VentureLedger</h3>
+                  <p>
+                    The world's first fully transparent exchange for early-stage and growth-stage private equity.
+                  </p>
+                </div>
+                <div className="landing-footer__cols">
+                  <div>
+                    <span>Platform</span>
+                    <button type="button" className="footer-link" onClick={() => setPage('auth')}>Marketplace</button>
+                    <button type="button" className="footer-link" onClick={() => navigateToAuth('entrepreneur')}>Startups</button>
+                    <button type="button" className="footer-link" onClick={() => navigateToAuth('investor')}>Investors</button>
+                  </div>
+                  <div>
+                    <span>Company</span>
+                    <button type="button" className="footer-link" onClick={onTopbarHelp}>About Us</button>
+                    <button type="button" className="footer-link" onClick={onTopbarHelp}>Compliance</button>
+                    <button type="button" className="footer-link" onClick={onTopbarHelp}>Careers</button>
+                  </div>
+                  <div>
+                    <span>Legal</span>
+                    <button type="button" className="footer-link" onClick={onTopbarHelp}>Privacy Policy</button>
+                    <button type="button" className="footer-link" onClick={onTopbarHelp}>Terms of Service</button>
+                    <button type="button" className="footer-link" onClick={onTopbarHelp}>Risk Disclosure</button>
+                  </div>
+                </div>
+              </footer>
+            </section>
+          )}
+
+          {page === 'auth' && !user && (
+            <section className="auth-page">
+              <article className="auth-story">
+                <span className="landing-eyebrow">Professional Venture Infrastructure</span>
+                <h2>Access the secure capital network built for founders and investors.</h2>
+                <p>
+                  Operate on a calm, institutional interface designed around transparent approvals, escrow control,
+                  proposal workflows, and trusted communication.
+                </p>
+                <div className="auth-story__points">
+                  <div><BadgeCheck size={18} /> Real-time asset and escrow tracking</div>
+                  <div><MessageSquare size={18} /> Proposal-centric founder-investor messaging</div>
+                  <div><ShieldCheck size={18} /> Admin-governed verification and release flows</div>
+                </div>
+              </article>
+
+              <article className="auth-card">
+                <div className="auth-card__header">
+                  <h2>{authMode === 'signup' ? 'Create Account' : 'Sign In'}</h2>
+                  <p>Choose your role and continue into the workspace.</p>
+                </div>
+
+                <div className="segmented-control">
+                  <button type="button" className={authMode === 'signup' ? 'active' : ''} onClick={() => setAuthMode('signup')}>
+                    Create Account
+                  </button>
+                  <button type="button" className={authMode === 'login' ? 'active' : ''} onClick={() => setAuthMode('login')}>
+                    Sign In
+                  </button>
+                </div>
+
+                <div className="segmented-control segmented-control--roles">
+                  <button type="button" className={authRole === 'entrepreneur' ? 'active' : ''} onClick={() => setAuthRole('entrepreneur')}>
+                    Entrepreneur
+                  </button>
+                  <button type="button" className={authRole === 'investor' ? 'active' : ''} onClick={() => setAuthRole('investor')}>
+                    Investor
+                  </button>
+                </div>
+
+                {authMode === 'login' && (
+                  <div className="demo-panel">
+                    <div>
+                      <h3>Quick demo access</h3>
+                      <p>Auto-fill working credentials without changing any flow logic.</p>
+                    </div>
+                    <div className="demo-grid">
+                      <button
+                        type="button"
+                        className="demo-btn demo-btn--admin"
+                        onClick={() => setAuthForm({ ...authForm, email: 'admin@demo.local', password: 'DemoPass123!' })}
+                      >
+                        Admin Demo
+                      </button>
+                      <button
+                        type="button"
+                        className="demo-btn demo-btn--founder"
+                        onClick={() => {
+                          setAuthForm({ ...authForm, email: 'entrepreneur@demo.local', password: 'DemoPass123!' })
+                          setAuthRole('entrepreneur')
+                        }}
+                      >
+                        Entrepreneur Demo
+                      </button>
+                      <button
+                        type="button"
+                        className="demo-btn demo-btn--investor"
+                        onClick={() => {
+                          setAuthForm({ ...authForm, email: 'investor@demo.local', password: 'DemoPass123!' })
+                          setAuthRole('investor')
+                        }}
+                      >
+                        Investor Demo
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <form onSubmit={onAuthSubmit} className="auth-form">
+                  {authMode === 'signup' && (
+                    <div className="field-row field-row--two">
+                      <input placeholder="First name" value={authForm.first_name} onChange={(e) => setAuthForm({ ...authForm, first_name: e.target.value })} />
+                      <input placeholder="Last name" value={authForm.last_name} onChange={(e) => setAuthForm({ ...authForm, last_name: e.target.value })} />
+                    </div>
+                  )}
+                  <input type="email" placeholder="Email" value={authForm.email} onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })} required />
+                  <input type="password" placeholder="Password" value={authForm.password} onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })} required />
+                  <button type="submit" className="button-primary button-primary--full">Continue to Workspace</button>
+                </form>
+              </article>
+            </section>
+          )}
+
+          {user && page === 'profile' && (
+            <section className="screen profile-screen">
+              <div className="screen-head">
+                <div>
+                  <h2>Workspace Settings</h2>
+                  <p>Manage your public identity, venture profile data, and verification readiness.</p>
+                </div>
+              </div>
+
+              <div className="profile-grid">
+                <article className="panel profile-summary">
+                  <div className="profile-summary__header">
+                    <div className="avatar-circle avatar-circle--large">{initials(activeUserName)}</div>
+                    <div>
+                      <h3>{activeUserName}</h3>
+                      <p>{user.email}</p>
+                    </div>
+                  </div>
+                  <div className="profile-badges">
+                    <span className={`status-pill ${user.verified ? 'tone-success' : 'tone-neutral'}`}>
+                      {user.verified ? 'Verified' : 'Pending Verification'}
+                    </span>
+                    <span className={`status-pill ${user.frozen ? 'tone-danger' : 'tone-info'}`}>
+                      {user.frozen ? 'Frozen' : 'Active'}
+                    </span>
+                  </div>
+                  <div className="summary-list">
+                    <div><span>Role</span><strong>{user.role}</strong></div>
+                    <div><span>Unread updates</span><strong>{unreadTotal}</strong></div>
+                    <div><span>Signals</span><strong>{signals.length}</strong></div>
+                    <div><span>Transactions</span><strong>{transactions.length}</strong></div>
+                  </div>
+                </article>
+
+                <article className="panel panel--form">
+                  <div className="panel-head">
+                    <div>
+                      <h3>Profile details</h3>
+                      <p>These fields back the live entrepreneur and investor flows already connected to the API.</p>
+                    </div>
+                  </div>
+                  <form onSubmit={onSaveProfile} className="form-grid">
+                    <div className="field-row field-row--two">
+                      <input placeholder="First name" value={user.first_name || ''} onChange={(e) => setUser({ ...user, first_name: e.target.value })} />
+                      <input placeholder="Last name" value={user.last_name || ''} onChange={(e) => setUser({ ...user, last_name: e.target.value })} />
+                    </div>
+
+                    {user.role === 'entrepreneur' ? (
+                      <>
+                        <input placeholder="Business Idea" value={user.business_idea || ''} onChange={(e) => setUser({ ...user, business_idea: e.target.value })} />
+                        <input placeholder="Funding Required" value={user.funding_required || ''} onChange={(e) => setUser({ ...user, funding_required: e.target.value })} />
+                        <input placeholder="Startup Documents" value={user.startup_documents || ''} onChange={(e) => setUser({ ...user, startup_documents: e.target.value })} />
+                      </>
+                    ) : (
+                      <>
+                        <input placeholder="Investment Interest" value={user.investment_interest || ''} onChange={(e) => setUser({ ...user, investment_interest: e.target.value })} />
+                        <input placeholder="Budget Range" value={user.budget_range || ''} onChange={(e) => setUser({ ...user, budget_range: e.target.value })} />
+                      </>
+                    )}
+
+                    <button type="submit" className="button-primary">Save Profile</button>
+                  </form>
+                </article>
+              </div>
+            </section>
+          )}
+
+          {user && page === 'dashboard' && user.role === 'entrepreneur' && (
+            <section className="screen workspace-screen">
+              <div className="screen-head">
+                <div>
+                  <h2>Dashboard Overview</h2>
+                  <p>Welcome back, {user.first_name || 'Founder'}. Here is what is happening across your funding rounds.</p>
+                </div>
+                <div className="screen-head__actions">
+                  <button type="button" className="button-secondary" onClick={() => setPage('chat')}>
+                    <Users size={16} /> Invite Investor
+                  </button>
+                  <button type="button" className="button-primary" onClick={() => setPage('proposals')}>
+                    <PlusCircle size={16} /> Create New Proposal
+                  </button>
+                </div>
+              </div>
+
+              <div className="metric-grid">
+                <article className="metric-card">
+                  <div className="metric-card__icon metric-card__icon--primary"><DollarSign size={18} /></div>
+                  <span>Total Funding Raised</span>
+                  <strong>{formatMoney(totalFundingRaised)}</strong>
+                  <small><TrendingUp size={14} /> +12%</small>
+                </article>
+                <article className="metric-card">
+                  <div className="metric-card__icon metric-card__icon--secondary"><FileText size={18} /></div>
+                  <span>Active Proposals</span>
+                  <strong>{proposals.length}</strong>
+                  <small>{pendingProposals.length} pending review</small>
+                </article>
+                <article className="metric-card">
+                  <div className="metric-card__icon metric-card__icon--tertiary"><Eye size={18} /></div>
+                  <span>Investor Views</span>
+                  <strong>{signals.length}</strong>
+                  <small>{investorRequests.length} live requests</small>
+                </article>
+                <article className="metric-card">
+                  <div className="metric-card__icon metric-card__icon--danger"><AlertTriangle size={18} /></div>
+                  <span>Pending Requests</span>
+                  <strong>{investorRequests.length}</strong>
+                  <small>Founder actions required</small>
+                </article>
+              </div>
+
+              <div className="workspace-columns workspace-columns--dashboard">
+                <article className="panel panel--table panel--span-2">
+                  <div className="panel-head">
+                    <div>
+                      <h3>Proposal Milestones</h3>
+                    </div>
+                    <button type="button" className="text-button" onClick={() => setPage('proposals')}>View All</button>
+                  </div>
+
+                  <div className="table-shell">
+                    <div className="table-shell__head table-shell__head--milestones">
+                      <span>Proposal Name</span>
+                      <span>Stage</span>
+                      <span>Completion</span>
+                      <span>Last Updated</span>
+                    </div>
+                    <div className="table-shell__body">
+                      {visibleProposals.length === 0 && <div className="empty-state">No proposals match the current search.</div>}
+                      {visibleProposals.map((proposal, index) => (
+                        <div className="table-row table-row--milestones" key={proposal.id}>
+                          <div className="proposal-name-cell">
+                            <div className="table-icon"><Rocket size={16} /></div>
+                            <div>
+                              <strong>{proposal.title}</strong>
+                              <p>{proposal.category}</p>
+                            </div>
+                          </div>
+                          <div>
+                            <span className={`status-pill ${statusTone(proposal.status)}`}>{proposal.status}</span>
+                          </div>
+                          <div>
+                            <div className="progress-bar"><span style={{ width: `${milestoneProgress(proposal.milestone)}%` }} /></div>
+                            <select value={proposal.milestone} onChange={(e) => onMilestoneChange(proposal.id, e.target.value as Proposal['milestone'])}>
+                              <option>Not Started</option>
+                              <option>In Progress</option>
+                              <option>Completed</option>
+                            </select>
+                          </div>
+                          <div>
+                            <strong>{index === 0 ? '2h ago' : index === 1 ? 'Yesterday' : '3 days ago'}</strong>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </article>
+
+                <aside className="stack-column">
+                  <article className="panel panel--requests">
+                    <div className="panel-head">
+                      <div>
+                        <h3>Investor Requests</h3>
+                      </div>
+                      <span className="counter-pill">{investorRequests.length || 0} new</span>
+                    </div>
+                    <div className="request-stack">
+                      {investorRequests.length === 0 && <div className="empty-state">No pending investor requests right now.</div>}
+                      {investorRequests.map((signal) => (
+                        <article className="request-card" key={signal.id}>
+                          <div className="request-card__head">
+                            <div className="avatar-circle avatar-circle--soft">{initials(signal.investor_email || 'Investor')}</div>
+                            <div>
+                              <strong>{signal.investor_email || 'Investor'}</strong>
+                              <p>{signal.message || 'No message provided'}</p>
+                            </div>
+                          </div>
+                          <div className="request-card__actions">
+                            <button type="button" className="action-approve" onClick={() => onSignalDecision(signal.id, 'accepted')}>
+                              Accept
+                            </button>
+                            <button type="button" className="action-reject" onClick={() => onSignalDecision(signal.id, 'rejected')}>
+                              Reject
+                            </button>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </article>
+
+                  <article className="banner-card">
+                    <h3>Unlock Global Capital</h3>
+                    <p>Connect with verified institutional investors across the globe through the existing live proposal and chat workflows.</p>
+                    <button type="button" onClick={() => setPage('chat')}>
+                      Explore Network <ArrowRight size={16} />
+                    </button>
+                  </article>
+                </aside>
+              </div>
+            </section>
+          )}
+
+          {user && page === 'dashboard' && user.role === 'investor' && (
+            <section className="screen wallet-screen">
+              <div className="screen-head">
+                <div>
+                  <h2>Investment Portfolio</h2>
+                  <p>Review available capital, open opportunities, and move from diligence to escrow funding.</p>
+                </div>
+                <div className="screen-head__actions">
+                  <button type="button" className="button-secondary" onClick={() => setPage('proposals')}>
+                    Browse Proposals
+                  </button>
+                  <button type="button" className="button-primary" onClick={() => setPage('wallet')}>
+                    Open Wallet
+                  </button>
+                </div>
+              </div>
+
+              <div className="wallet-summary-grid">
+                <article className="metric-card metric-card--wallet">
+                  <span>Available Capital</span>
+                  <strong>{investorCapital}</strong>
+                  <small><TrendingUp size={14} /> +2.4% from last month</small>
+                </article>
+                <article className="metric-card metric-card--wallet">
+                  <span>In Escrow</span>
+                  <strong>{investorEscrow}</strong>
+                  <small><Wallet size={14} /> {transactions.length} active holdings</small>
+                </article>
+                <article className="metric-card metric-card--wallet">
+                  <span>Transaction Count</span>
+                  <strong>{transactions.length}</strong>
+                  <small><Clock3 size={14} /> Fiscal year 2026</small>
+                </article>
+              </div>
+
+              <div className="workspace-columns workspace-columns--wallet">
+                <article className="panel panel--table panel--span-2">
+                  <div className="panel-head">
+                    <div>
+                      <h3>Approved Opportunities</h3>
+                      <p>Open any approved proposal to invest or start a direct conversation.</p>
+                    </div>
+                  </div>
+
+                  <div className="opportunity-stack">
+                    {visibleApprovedProposals.length === 0 && <div className="empty-state">No approved proposals match the current search.</div>}
+                    {visibleApprovedProposals.map((proposal) => (
+                      <article className="opportunity-card" key={proposal.id}>
+                        <div>
+                          <strong>{proposal.title}</strong>
+                          <p>{proposal.category} · Target {formatMoney(proposal.required_funding)}</p>
+                        </div>
+                        <div className="row-actions">
+                          <button type="button" className="button-secondary" onClick={() => { setSelectedProposalId(proposal.id); setPage('proposals') }}>
+                            Review
+                          </button>
+                          <button type="button" className="button-secondary" onClick={() => openChat(proposal.id)}>
+                            Chat
+                          </button>
+                          <button type="button" className="button-primary" onClick={() => { setWalletForm({ ...walletForm, proposal: proposal.id }); setPage('wallet') }}>
+                            Invest
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </article>
+
+                <aside className="stack-column">
+                  <article className="panel">
+                    <div className="panel-head">
+                      <div>
+                        <h3>Escrow Snapshot</h3>
+                      </div>
+                    </div>
+                    <div className="summary-list">
+                      <div><span>Approved proposals</span><strong>{approvedProposals.length}</strong></div>
+                      <div><span>Signals sent</span><strong>{signals.length}</strong></div>
+                      <div><span>Unread messages</span><strong>{unreadTotal}</strong></div>
+                      <div><span>Transaction volume</span><strong>{formatMoney(transactionVolume)}</strong></div>
+                    </div>
+                  </article>
+
+                  <article className="panel">
+                    <div className="panel-head">
+                      <div>
+                        <h3>Latest Transactions</h3>
+                      </div>
+                    </div>
+                    <div className="ledger-stack">
+                      {transactions.slice(0, 4).map((transaction) => (
+                        <div className="ledger-item" key={transaction.id}>
+                          <div className="ledger-item__icon"><DollarSign size={16} /></div>
+                          <div>
+                            <strong>{transaction.action}</strong>
+                            <p>Proposal #{transaction.proposal}</p>
+                          </div>
+                          <span className={`status-pill ${actionTone(transaction.action)}`}>{formatMoney(transaction.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </article>
+                </aside>
+              </div>
+            </section>
+          )}
+
+          {user && page === 'proposals' && user.role === 'entrepreneur' && (
+            <section className="screen workspace-screen">
+              <div className="screen-head">
+                <div>
+                  <h2>Proposal Studio</h2>
+                  <p>Publish a new funding round while preserving the same backend submission flow and moderation logic.</p>
+                </div>
+              </div>
+
+              <div className="proposal-grid proposal-grid--founder">
+                <article className="panel panel--info">
+                  <h3>Submission checklist</h3>
+                  <ul className="check-list">
+                    <li>Provide a compelling startup summary and funding need.</li>
+                    <li>Attach your document name so admin can review it.</li>
+                    <li>Keep timeline and category aligned with the opportunity.</li>
+                  </ul>
+                  <div className="summary-list">
+                    <div><span>Total proposals</span><strong>{proposals.length}</strong></div>
+                    <div><span>Pending review</span><strong>{pendingProposals.length}</strong></div>
+                    <div><span>Approved rounds</span><strong>{approvedProposals.length}</strong></div>
+                  </div>
+                </article>
+
+                <article className="panel panel--form">
+                  <div className="panel-head">
+                    <div>
+                      <h3>Submit proposal</h3>
+                      <p>The functionality below is unchanged; only the visual structure has been rebuilt from the exported design style.</p>
+                    </div>
+                  </div>
+                  <form onSubmit={onSubmitProposal} className="form-grid">
+                    <input placeholder="Business Title" value={proposalForm.title} onChange={(e) => setProposalForm({ ...proposalForm, title: e.target.value })} required />
+                    <input placeholder="Startup Details" value={proposalForm.startup_details} onChange={(e) => setProposalForm({ ...proposalForm, startup_details: e.target.value })} required />
+                    <textarea placeholder="Pitch Description" value={proposalForm.description} onChange={(e) => setProposalForm({ ...proposalForm, description: e.target.value })} />
+                    <div className="field-row field-row--two">
+                      <input placeholder="Category" value={proposalForm.category} onChange={(e) => setProposalForm({ ...proposalForm, category: e.target.value })} required />
+                      <input type="number" placeholder="Required Funding" value={proposalForm.required_funding} onChange={(e) => setProposalForm({ ...proposalForm, required_funding: Number(e.target.value) })} required />
+                    </div>
+                    <div className="field-row field-row--two">
+                      <input placeholder="Timeline" value={proposalForm.timeline} onChange={(e) => setProposalForm({ ...proposalForm, timeline: e.target.value })} />
+                      <input placeholder="Documents filename" value={proposalForm.document_name} onChange={(e) => setProposalForm({ ...proposalForm, document_name: e.target.value })} required />
+                    </div>
+                    <input placeholder="Pitch video URL" value={proposalForm.pitch_video_url} onChange={(e) => setProposalForm({ ...proposalForm, pitch_video_url: e.target.value })} />
+                    <button type="submit" className="button-primary">Submit Proposal</button>
+                  </form>
+                </article>
+
+                <aside className="panel panel--list">
+                  <div className="panel-head">
+                    <div>
+                      <h3>Your active proposals</h3>
+                    </div>
+                  </div>
+                  <div className="mini-list">
+                    {visibleProposals.map((proposal) => (
+                      <button type="button" key={proposal.id} className="mini-list__item" onClick={() => setSelectedProposalId(proposal.id)}>
+                        <div>
+                          <strong>{proposal.title}</strong>
+                          <p>{proposal.category}</p>
+                        </div>
+                        <span className={`status-pill ${statusTone(proposal.status)}`}>{proposal.status}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {selectedProposal && (
+                    <div className="detail-card">
+                      <h4>{selectedProposal.title}</h4>
+                      <p>{selectedProposal.description || 'No description provided.'}</p>
+                      <ul>
+                        <li>Funding target: {formatMoney(selectedProposal.required_funding)}</li>
+                        <li>Timeline: {selectedProposal.timeline || 'N/A'}</li>
+                        <li>Status: {selectedProposal.status}</li>
+                      </ul>
+                    </div>
+                  )}
+                </aside>
+              </div>
+            </section>
+          )}
+
+          {user && page === 'proposals' && user.role === 'investor' && (
+            <section className="screen workspace-screen">
+              <div className="screen-head">
+                <div>
+                  <h2>Proposal Marketplace</h2>
+                  <p>Review vetted funding opportunities with the same interest, chat, and invest actions already wired to the backend.</p>
+                </div>
+              </div>
+
+              <div className="proposal-grid proposal-grid--investor">
+                <article className="panel panel--table panel--span-2">
+                  <div className="panel-head">
+                    <div>
+                      <h3>Queue Management</h3>
+                    </div>
+                    <div className="toolbar-row">
+                      <span className="segmented-mini">
+                        <button type="button" className={investorProposalFilter === 'all' ? 'active' : ''} onClick={() => setInvestorProposalFilter('all')}>All</button>
+                        <button type="button" className={investorProposalFilter === 'approved' ? 'active' : ''} onClick={() => setInvestorProposalFilter('approved')}>Approved</button>
+                        <button type="button" className={investorProposalFilter === 'pending' ? 'active' : ''} onClick={() => setInvestorProposalFilter('pending')}>Pending</button>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="table-shell">
+                    <div className="table-shell__head table-shell__head--market">
+                      <span>Startup Name</span>
+                      <span>Funding Goal</span>
+                      <span>Stage</span>
+                      <span>Status</span>
+                      <span>Actions</span>
+                    </div>
+                    <div className="table-shell__body">
+                      {filteredInvestorMarketplaceProposals.map((proposal) => (
+                        <div className="table-row table-row--market" key={proposal.id}>
+                          <button type="button" className="table-row__main" onClick={() => setSelectedProposalId(proposal.id)}>
+                            <div className="proposal-name-cell">
+                              <div className="table-icon"><Briefcase size={16} /></div>
+                              <div>
+                                <strong>{proposal.title}</strong>
+                                <p>{proposal.startup_details || proposal.category}</p>
+                              </div>
+                            </div>
+                          </button>
+                          <span>{formatMoney(proposal.required_funding)}</span>
+                          <span className="status-pill tone-neutral">{proposal.category}</span>
+                          <span className={`status-pill ${statusTone(proposal.status)}`}>{proposal.status}</span>
+                          <div className="row-actions">
+                            <button type="button" className="button-primary button-primary--small" onClick={() => onSendInterest(proposal.id)}>Interested</button>
+                            <button type="button" className="button-secondary button-secondary--small" onClick={() => openChat(proposal.id)}>Chat</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </article>
+
+                <aside className="panel panel--detail">
+                  <div className="panel-head">
+                    <div>
+                      <h3>Proposal Detail</h3>
+                    </div>
+                  </div>
+
+                  {selectedProposal ? (
+                    <div className="detail-card detail-card--full">
+                      <h4>{selectedProposal.title}</h4>
+                      <p>{selectedProposal.description || 'No description provided.'}</p>
+                      <div className="summary-list">
+                        <div><span>Category</span><strong>{selectedProposal.category}</strong></div>
+                        <div><span>Status</span><strong>{selectedProposal.status}</strong></div>
+                        <div><span>Funding target</span><strong>{formatMoney(selectedProposal.required_funding)}</strong></div>
+                        <div><span>Timeline</span><strong>{selectedProposal.timeline || 'N/A'}</strong></div>
+                      </div>
+                      <div className="detail-actions detail-actions--column">
+                        <button type="button" className="button-primary" onClick={() => onSendInterest(selectedProposal.id)}>Send Interest</button>
+                        <button type="button" className="button-secondary" onClick={() => openChat(selectedProposal.id)}>Open Chat</button>
+                        <button type="button" className="button-secondary" disabled={selectedProposal.status !== 'approved'} onClick={() => { setWalletForm({ ...walletForm, proposal: selectedProposal.id }); setPage('wallet') }}>
+                          Invest via Wallet
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="empty-state">Select a proposal from the marketplace to inspect its detail and take action.</div>
+                  )}
+                </aside>
+              </div>
+            </section>
+          )}
+
+          {user && page === 'wallet' && (
+            <section className="screen wallet-screen">
+              <div className="screen-head">
+                <div>
+                  <h2>{user.role === 'investor' ? 'Virtual Escrow Wallet' : 'Escrow Visibility'}</h2>
+                  <p>{user.role === 'investor' ? 'Fund approved proposals through escrow or create a Stripe intent without changing the existing payment backend flow.' : 'Read-only entrepreneur view into held funds and transaction activity.'}</p>
+                </div>
+              </div>
+
+              <div className="wallet-summary-grid">
+                <article className="metric-card metric-card--wallet">
+                  <span>Available Capital</span>
+                  <strong>{user.role === 'investor' ? investorCapital : formatMoney(totalFundingRaised)}</strong>
+                  <small><TrendingUp size={14} /> +2.4% from last month</small>
+                </article>
+                <article className="metric-card metric-card--wallet">
+                  <span>In Escrow</span>
+                  <strong>{formatMoney(user.role === 'investor' ? walletBalance?.in_escrow : escrowSummary?.total_escrow)}</strong>
+                  <small><Wallet size={14} /> {transactions.length} active holdings</small>
+                </article>
+                <article className="metric-card metric-card--wallet">
+                  <span>Transaction Count</span>
+                  <strong>{transactions.length}</strong>
+                  <small><Clock3 size={14} /> Fiscal year 2026</small>
+                </article>
+              </div>
+
+              <div className="wallet-layout">
+                <article className="panel panel--wallet-form">
+                  <div className="panel-head">
+                    <div>
+                      <h3>{user.role === 'investor' ? 'Fund New Proposal' : 'Escrow Overview'}</h3>
+                    </div>
+                  </div>
+
+                  {user.role === 'investor' ? (
+                    <form onSubmit={onInvest} className="form-grid wallet-form-grid">
+                      <div>
+                        <label>Payment Method</label>
+                        <div className="segmented-control segmented-control--wallet">
+                          <button type="button" className={walletForm.method === 'virtual-escrow' ? 'active' : ''} onClick={() => setWalletForm({ ...walletForm, method: 'virtual-escrow' })}>
+                            Escrow Wallet
+                          </button>
+                          <button type="button" className={walletForm.method === 'stripe' ? 'active' : ''} onClick={() => setWalletForm({ ...walletForm, method: 'stripe' })}>
+                            Stripe Card
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label>Select Proposal</label>
+                        <select value={walletForm.proposal} onChange={(e) => setWalletForm({ ...walletForm, proposal: Number(e.target.value) })}>
+                          <option value={0}>Select Proposal</option>
+                          {visibleApprovedProposals.map((proposal) => (
+                            <option key={proposal.id} value={proposal.id}>{proposal.title}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label>Funding Amount</label>
+                        <input type="number" value={walletForm.amount} onChange={(e) => setWalletForm({ ...walletForm, amount: Number(e.target.value) })} />
+                        <p className="field-hint">Minimum contribution: {formatMoney(5000)}</p>
+                      </div>
+
+                      <button type="submit" className="button-primary button-primary--full">
+                        <Wallet size={16} /> {walletForm.method === 'stripe' ? 'Create Stripe Intent' : 'Fund Escrow'}
+                      </button>
+
+                      {pendingIntentId && (
+                        <div className="intent-box">
+                          <span>Pending intent: {pendingIntentId}</span>
+                          <button type="button" className="button-secondary button-secondary--small" onClick={onCheckIntentStatus}>
+                            Check Stripe Status
+                          </button>
+                        </div>
+                      )}
+                    </form>
+                  ) : (
+                    <div className="detail-card detail-card--full">
+                      <h4>Founder escrow snapshot</h4>
+                      <p>Entrepreneurs retain a read-only view here while admin settlement flows and investor funding continue to operate through the same backend actions.</p>
+                      <div className="summary-list">
+                        <div><span>Total escrow</span><strong>{formatMoney(escrowSummary?.total_escrow)}</strong></div>
+                        <div><span>Transactions</span><strong>{transactions.length}</strong></div>
+                        <div><span>Unread messages</span><strong>{unreadTotal}</strong></div>
+                      </div>
+                    </div>
+                  )}
+                </article>
+
+                <article className="panel panel--table">
+                  <div className="panel-head">
+                    <div>
+                      <h3>Transaction History</h3>
+                    </div>
+                    <button type="button" className="text-button" onClick={() => setShowAllTransactions((previous) => !previous)}>{showAllTransactions ? 'Collapse' : 'View All'}</button>
+                  </div>
+                  <div className="ledger-stack">
+                    {transactions.length === 0 && <div className="empty-state">No transaction activity yet.</div>}
+                    {(showAllTransactions ? transactions : transactions.slice(0, 8)).map((transaction) => (
+                      <div className="ledger-item ledger-item--rich" key={transaction.id}>
+                        <div className="ledger-item__icon">
+                          {transaction.action === 'refund' ? <XCircle size={16} /> : transaction.action === 'invest' ? <TrendingUp size={16} /> : <Wallet size={16} />}
+                        </div>
+                        <div className="ledger-item__content">
+                          <strong>{proposals.find((proposal) => proposal.id === transaction.proposal)?.title || `Proposal #${transaction.proposal}`}</strong>
+                          <p>{transaction.action} · {transaction.method} · Tx #{transaction.id}</p>
+                        </div>
+                        <div className="ledger-item__meta">
+                          <strong>{formatMoney(transaction.amount)}</strong>
+                          <span className={`status-pill ${actionTone(transaction.action)}`}>{transaction.action}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              </div>
+            </section>
+          )}
+
+          {user && page === 'chat' && (
+            <section className="screen workspace-screen">
+              <div className="screen-head">
+                <div>
+                  <h2>Communication Hub</h2>
+                  <p>Proposal-specific conversations, unread tracking, and investment context in one structured workspace.</p>
+                </div>
+              </div>
+
+              <div className="chat-shell">
+                <aside className="panel panel--chat-list">
+                  <div className="panel-head">
+                    <div>
+                      <h3>Conversations</h3>
+                    </div>
+                  </div>
+                  <div className="chat-list">
+                    {visibleChats.length === 0 && <div className="empty-state">No conversations match the current search.</div>}
+                    {visibleChats.map((chat) => (
+                      <button type="button" key={chat.id} className={`chat-list__item ${selectedProposalId === chat.proposal ? 'active' : ''}`} onClick={() => openChat(chat.proposal)}>
+                        <div className="avatar-circle avatar-circle--soft">{initials(chat.proposal_title)}</div>
+                        <div>
+                          <strong>{chat.proposal_title}</strong>
+                          <p>{compactText(chat.last_message) || 'No messages yet'}</p>
+                        </div>
+                        <span className="status-pill tone-neutral">{chat.unread_count || 0}</span>
+                      </button>
+                    ))}
+                  </div>
+                </aside>
+
+                <article className="panel panel--chat-main">
+                  <div className="panel-head">
+                    <div>
+                      <h3>{selectedProposal ? selectedProposal.title : 'Active Thread'}</h3>
+                      <p>{selectedProposal ? selectedProposal.category : 'Select a proposal conversation'}</p>
+                    </div>
+                  </div>
+                  <div className="chat-window">
+                    {messages.length === 0 && <div className="empty-state">No messages in this thread yet.</div>}
+                    {messages.map((message) => (
+                      <div key={message.id} className={`message-bubble ${message.sender === user.id ? 'message-bubble--own' : ''}`}>
+                        <small>{message.sender_email}</small>
+                        <p>{compactText(message.content)}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <form onSubmit={onSendMessage} className="chat-composer">
+                    <input value={messageDraft} onChange={(e) => setMessageDraft(e.target.value)} placeholder="Type message..." />
+                    <button type="submit" className="button-primary"><SendHorizontal size={16} /> Send</button>
+                  </form>
+                </article>
+
+                <aside className="panel panel--detail">
+                  <div className="panel-head">
+                    <div>
+                      <h3>Proposal Context</h3>
+                    </div>
+                  </div>
+                  {selectedProposal ? (
+                    <div className="detail-card detail-card--full">
+                      <h4>{selectedProposal.title}</h4>
+                      <p>{selectedProposal.description || 'No description provided.'}</p>
+                      <div className="summary-list">
+                        <div><span>Category</span><strong>{selectedProposal.category}</strong></div>
+                        <div><span>Status</span><strong>{selectedProposal.status}</strong></div>
+                        <div><span>Funding target</span><strong>{formatMoney(selectedProposal.required_funding)}</strong></div>
+                      </div>
+                      <div className="detail-actions detail-actions--column">
+                        <button type="button" className="button-secondary" onClick={() => setPage('proposals')}>View Proposal</button>
+                        {user.role === 'investor' && (
+                          <button type="button" className="button-primary" onClick={() => { setWalletForm({ ...walletForm, proposal: selectedProposal.id }); setPage('wallet') }}>
+                            Invest
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="empty-state">Select a conversation to view proposal context.</div>
+                  )}
+                </aside>
+              </div>
+            </section>
+          )}
+
+          {user && isAdmin && page === 'admin' && (
+            <section className="screen admin-screen">
+              <div className="screen-head">
+                <div>
+                  <h2>
+                    {adminView === 'users'
+                      ? 'User Management'
+                      : adminView === 'proposals'
+                        ? 'Proposal Moderation'
+                        : adminView === 'escrow'
+                          ? 'Escrow Settlements'
+                          : 'System Logs'}
+                  </h2>
+                  <p>
+                    {adminView === 'users'
+                      ? 'Verify credentials, manage access levels, and monitor ecosystem health.'
+                      : adminView === 'proposals'
+                        ? 'Review and manage incoming investment opportunities across the ledger.'
+                        : adminView === 'escrow'
+                          ? 'Manage and authorize secure institutional fund transfers.'
+                          : 'Audit activity from proposals, signals, and escrow operations.'}
+                  </p>
+                </div>
+                <div className="screen-head__actions">
+                  <button type="button" className="button-secondary" onClick={() => setWorkspaceQuery('')}><Filter size={16} /> Reset Search</button>
+                  <button type="button" className="button-secondary" onClick={onDownloadReport}><Download size={16} /> Export</button>
+                </div>
+              </div>
+
+              <div className="segmented-control segmented-control--admin">
+                <button type="button" className={adminView === 'users' ? 'active' : ''} onClick={() => setAdminView('users')}>User Registry</button>
+                <button type="button" className={adminView === 'proposals' ? 'active' : ''} onClick={() => setAdminView('proposals')}>Proposal Queue</button>
+                <button type="button" className={adminView === 'escrow' ? 'active' : ''} onClick={() => setAdminView('escrow')}>Escrow Ledger</button>
+                <button type="button" className={adminView === 'logs' ? 'active' : ''} onClick={() => setAdminView('logs')}>System Logs</button>
+              </div>
+
+              {adminView === 'users' && (
+                <>
+                  <div className="metric-grid metric-grid--admin">
+                    <article className="metric-card">
+                      <div className="metric-card__icon metric-card__icon--primary"><Users size={18} /></div>
+                      <span>Total Users</span>
+                      <strong>{users.length}</strong>
+                      <small>+12.4%</small>
+                    </article>
+                    <article className="metric-card">
+                      <div className="metric-card__icon metric-card__icon--tertiary"><BadgeCheck size={18} /></div>
+                      <span>Pending Verifications</span>
+                      <strong>{users.filter((entry) => !entry.verified).length}</strong>
+                      <small>Action needed</small>
+                    </article>
+                    <article className="metric-card">
+                      <div className="metric-card__icon metric-card__icon--danger"><AlertTriangle size={18} /></div>
+                      <span>Flagged Accounts</span>
+                      <strong>{users.filter((entry) => entry.frozen).length}</strong>
+                      <small>High priority</small>
+                    </article>
+                    <article className="metric-card metric-card--highlight">
+                      <span>KYC Completion Rate</span>
+                      <strong>{users.length ? `${Math.round((users.filter((entry) => entry.verified).length / users.length) * 100)}%` : '0%'}</strong>
+                      <div className="progress-bar"><span style={{ width: `${users.length ? (users.filter((entry) => entry.verified).length / users.length) * 100 : 0}%` }} /></div>
+                    </article>
+                  </div>
+
+                  <article className="panel panel--table">
+                    <div className="panel-head">
+                      <div><h3>User Registry</h3></div>
+                      <div className="toolbar-row">
+                        <span className="segmented-mini">
+                          <button type="button" className={adminUserFilter === 'all' ? 'active' : ''} onClick={() => setAdminUserFilter('all')}>All</button>
+                          <button type="button" className={adminUserFilter === 'active' ? 'active' : ''} onClick={() => setAdminUserFilter('active')}>Active</button>
+                          <button type="button" className={adminUserFilter === 'frozen' ? 'active' : ''} onClick={() => setAdminUserFilter('frozen')}>Frozen</button>
+                        </span>
+                      </div>
+                    </div>
+                    <div className="table-shell">
+                      <div className="table-shell__head table-shell__head--admin-users">
+                        <span>Name & Identification</span>
+                        <span>Role</span>
+                        <span>Status</span>
+                        <span>Join Date</span>
+                        <span>Actions</span>
+                      </div>
+                      <div className="table-shell__body">
+                        {filteredAdminUsers.map((entry) => (
+                          <div className="table-row table-row--admin-users" key={entry.id}>
+                            <div className="user-cell">
+                              <div className="avatar-circle avatar-circle--soft">{initials(entry.email)}</div>
+                              <div>
+                                <strong>{entry.first_name || entry.last_name ? `${entry.first_name || ''} ${entry.last_name || ''}`.trim() : entry.email.split('@')[0]}</strong>
+                                <p>{entry.email}</p>
+                              </div>
+                            </div>
+                            <span className="status-pill tone-neutral">{entry.role}</span>
+                            <div className="status-stack">
+                              <span className={`status-dot ${entry.verified ? 'status-dot--success' : 'status-dot--warning'}`} />
+                              <span>{entry.frozen ? 'Frozen' : entry.verified ? 'Verified' : 'Unverified'}</span>
+                            </div>
+                            <span>2026</span>
+                            <div className="row-actions">
+                              <button type="button" className="button-secondary button-secondary--small" onClick={() => onToggleUserFlag(entry, 'verified')}>
+                                {entry.verified ? 'Unverify' : 'Verify'}
+                              </button>
+                              <button type="button" className="button-secondary button-secondary--small button-secondary--danger" onClick={() => onToggleUserFlag(entry, 'frozen')}>
+                                {entry.frozen ? 'Unfreeze' : 'Freeze'}
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </article>
+                </>
+              )}
+
+              {adminView === 'proposals' && (
+                <>
+                  <div className="metric-grid metric-grid--admin">
+                    <article className="metric-card">
+                      <div className="metric-card__icon metric-card__icon--primary"><Clock3 size={18} /></div>
+                      <span>Pending Proposals</span>
+                      <strong>{pendingProposals.length}</strong>
+                      <small>+12% this week</small>
+                    </article>
+                    <article className="metric-card">
+                      <div className="metric-card__icon metric-card__icon--tertiary"><TrendingUp size={18} /></div>
+                      <span>Approval Rate</span>
+                      <strong>{proposals.length ? `${Math.round((approvedProposals.length / proposals.length) * 100)}%` : '0%'}</strong>
+                      <small>Target: 85%</small>
+                    </article>
+                    <article className="metric-card">
+                      <div className="metric-card__icon metric-card__icon--secondary"><Wallet size={18} /></div>
+                      <span>Active Funding Rounds</span>
+                      <strong>{approvedProposals.length}</strong>
+                      <small>Active</small>
+                    </article>
+                  </div>
+
+                  <article className="panel panel--table">
+                    <div className="panel-head">
+                      <div>
+                        <h3>Queue Management</h3>
+                      </div>
+                      <div className="toolbar-row">
+                        <span className="segmented-mini">
+                          <button type="button" className={adminProposalFilter === 'all' ? 'active' : ''} onClick={() => setAdminProposalFilter('all')}>All</button>
+                          <button type="button" className={adminProposalFilter === 'pending' ? 'active' : ''} onClick={() => setAdminProposalFilter('pending')}>Pending</button>
+                          <button type="button" className={adminProposalFilter === 'approved' ? 'active' : ''} onClick={() => setAdminProposalFilter('approved')}>Approved</button>
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="table-shell">
+                      <div className="table-shell__head table-shell__head--admin-proposals">
+                        <span>Startup Name</span>
+                        <span>Funding Goal</span>
+                        <span>Stage</span>
+                        <span>Status</span>
+                        <span>Actions</span>
+                      </div>
+                      <div className="table-shell__body">
+                        {filteredAdminProposals.map((proposal) => (
+                          <div className="table-row table-row--admin-proposals" key={proposal.id}>
+                            <div className="proposal-name-cell">
+                              <div className="table-icon"><Briefcase size={16} /></div>
+                              <div>
+                                <strong>{proposal.title}</strong>
+                                <p>{proposal.startup_details || proposal.category}</p>
+                              </div>
+                            </div>
+                            <span>{formatMoney(proposal.required_funding)}</span>
+                            <span className="status-pill tone-neutral">{proposal.category}</span>
+                            <span className={`status-pill ${statusTone(proposal.status)}`}>{proposal.status}</span>
+                            <div className="row-actions">
+                              <button type="button" className="button-primary button-primary--small" onClick={() => onAdminApproveProposal(proposal.id)}>Approve</button>
+                              <button type="button" className="button-secondary button-secondary--small button-secondary--danger" onClick={() => onAdminSetPending(proposal.id)}>Pending</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </article>
+                </>
+              )}
+
+              {adminView === 'escrow' && (
+                <>
+                  <div className="metric-grid metric-grid--admin">
+                    <article className="metric-card">
+                      <div className="metric-card__icon metric-card__icon--primary"><Wallet size={18} /></div>
+                      <span>Total Held in Escrow</span>
+                      <strong>{formatMoney(escrowSummary?.total_escrow)}</strong>
+                      <small>+2.4%</small>
+                    </article>
+                    <article className="metric-card">
+                      <div className="metric-card__icon metric-card__icon--danger"><AlertTriangle size={18} /></div>
+                      <span>Settlements Pending</span>
+                      <strong>{transactions.length}</strong>
+                      <small>Critical review</small>
+                    </article>
+                    <article className="metric-card">
+                      <div className="metric-card__icon metric-card__icon--secondary"><TrendingUp size={18} /></div>
+                      <span>24h Volume</span>
+                      <strong>{formatMoney(transactionVolume)}</strong>
+                      <small>Stable</small>
+                    </article>
+                  </div>
+
+                  <article className="panel panel--table">
+                    <div className="panel-head">
+                      <div>
+                        <h3>Active Transactions Ledger</h3>
+                      </div>
+                      <div className="toolbar-row">
+                        <span className="status-pill tone-info">Active</span>
+                        <span className="status-pill tone-neutral">Archived</span>
+                      </div>
+                    </div>
+                    <div className="table-shell">
+                      <div className="table-shell__head table-shell__head--admin-escrow">
+                        <span>Transaction ID</span>
+                        <span>Asset / Counterparty</span>
+                        <span>Amount</span>
+                        <span>Status</span>
+                        <span>Date</span>
+                        <span>Actions</span>
+                      </div>
+                      <div className="table-shell__body">
+                        {filteredEscrowTransactions.map((transaction) => {
+                          const linkedProposal = proposals.find((proposal) => proposal.id === transaction.proposal)
+                          return (
+                            <div className="table-row table-row--admin-escrow" key={transaction.id}>
+                              <span>TXN-{transaction.id}</span>
+                              <div className="proposal-name-cell">
+                                <div className="table-icon"><Wallet size={16} /></div>
+                                <div>
+                                  <strong>{linkedProposal?.title || `Proposal #${transaction.proposal}`}</strong>
+                                  <p>{transaction.method}</p>
+                                </div>
+                              </div>
+                              <span>{formatMoney(transaction.amount)}</span>
+                              <span className={`status-pill ${actionTone(transaction.action)}`}>{transaction.action}</span>
+                              <span>2026</span>
+                              <div className="row-actions">
+                                <button type="button" className="button-primary button-primary--small" onClick={() => onAdminSettlement(transaction.proposal, 'release')}>Release</button>
+                                <button type="button" className="button-secondary button-secondary--small button-secondary--danger" onClick={() => onAdminSettlement(transaction.proposal, 'refund')}>Refund</button>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </article>
+                </>
+              )}
+
+              {adminView === 'logs' && (
+                <article className="panel panel--table">
+                  <div className="panel-head">
+                    <div>
+                      <h3>System Activity Logs</h3>
+                      <p>Aggregated from live proposals, signals, and escrow records.</p>
+                    </div>
+                  </div>
+                  <div className="ledger-stack">
+                    {recentSystemLogs.length === 0 && <div className="empty-state">No system events available yet.</div>}
+                    {recentSystemLogs.map((log) => (
+                      <div className="ledger-item ledger-item--rich" key={log.id}>
+                        <div className="ledger-item__icon"><History size={16} /></div>
+                        <div className="ledger-item__content">
+                          <strong>{log.category}</strong>
+                          <p>{log.detail}</p>
+                        </div>
+                        <div className="ledger-item__meta">
+                          <span className="status-pill tone-neutral">Live</span>
+                          <small>{log.meta}</small>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              )}
+            </section>
+          )}
+        </main>
+      </div>
+    </div>
+  )
+}
+
+export default App

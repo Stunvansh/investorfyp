@@ -1,0 +1,91 @@
+PPrrooppoossaall
+PPrroojjeecctt
+Um.e.Aimen (221026/101561)
+Laiba Naeem (221049/101599)
+Presented By
+Department of Information Technology
+Government College University,
+Faisalabad.
+Entrepreneur & Investor
+Collaboration Platform
+Project Title
+This platform is designed to connect entrepreneurs with potential
+investors through secure profiles. Both parties can communicate,
+send proposals, and engage in contract-based investment using
+smart verification. The aim is to reduce fraud and strengthen
+professional business connections.
+Introduction
+Objective
+To develop a smart and secure web platform that allows investors and
+entrepreneurs to connect easily and build professional business
+relationships.
+Provide a user-friendly interface where entrepreneurs can present
+their business ideas and investors can review them smoothly.
+Offer a verified business listing system to reduce fraud and increase
+trust between both parties.
+Ensure the security and privacy of user data through strong
+authentication, profile verification, and protected contract signing.
+Enable transparent communication through features like chat, live
+pitch streaming, progress updates, and milestone tracking.
+Support cloud-based services for scalability, high availability, and
+fast access from anywhere.
+Problem Description
+Current business funding platforms lack transparency, secure
+verification, and effective communication between investors and
+entrepreneurs. Investors often find it hard to trust new startups,
+while entrepreneurs struggle to reach genuine investors. This project
+provides a secure platform where both parties can connect, verify
+profiles, communicate, sign digital agreements, and easily track
+business progress.
+Methodology
+The project will follow an iterative process, beginning with
+requirements gathering from investors and entrepreneurs, then moving
+through interface design, backend development, and feature
+integration. Continuous testing will ensure smooth communication and
+investment tracking. Using Agile methodology, the system will remain
+flexible for quick updates based on user feedback. After successful
+testing, the platform will be deployed on a secure, scalable cloud
+environment.
+The project focuses on creating an online system where entrepreneurs
+can present their business ideas, request funding, and communicate
+professionally; meanwhile, investors can browse proposals, analyze
+opportunities, and manage funding interests using filters and
+verification tools.
+Project Scope
+The idea is feasible because:
+Startups are increasing rapidly
+Investors need structured deal-flow
+Market lacks a transparent communication channel
+Both technical and economic feasibility are strong, as the platform
+can be built using widely available frameworks.
+Feasibility Study
+This platform can be applied in:
+Business incubation centers
+Investment networking events
+University startup programs
+Financial advisory platforms
+It can also help students build entrepreneurial portfolios.
+Solution Application Areas
+Frontend: React.js, Tailwind CSS , Axios (API calls)
+Backend: Python/ Django
+Database: MongoDB or Firebase
+Streaming : WebSockets
+Authentication :JWT (JSON Web Tokens)
+Cloud Hosting : Vercel / Netlify / Render/PythonAnywhere
+Tools / Technology
+Team skills include:
+UI/UX design for dashboards
+Frontend development for clean layouts
+Backend logic for authentication and data handling
+Database structuring for profiles and proposals
+Real-time chat integration for investor–entrepreneur collaboration
+Expertise of Team Members
+Milestones
+Requirements analysis & planning
+UI/UX wireframes and prototype
+Frontend layout and routing setup
+Authentication & role-based dashboards
+Real-time message feature development
+Database integration and proposal management
+Testing and bug fixing
+Deployment & final presentation

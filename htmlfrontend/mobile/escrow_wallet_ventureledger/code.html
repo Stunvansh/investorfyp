@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VentureLedger - Virtual Escrow Wallet</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "outline-variant": "#afb2bb",
+                        "tertiary-fixed-dim": "#ccbcec",
+                        "on-tertiary-container": "#4d4169",
+                        "on-primary-fixed": "#0a2c53",
+                        "inverse-surface": "#0c0e12",
+                        "surface-tint": "#44608a",
+                        "surface-dim": "#d7dae4",
+                        "tertiary": "#655882",
+                        "on-secondary": "#f8f8ff",
+                        "error-container": "#fa746f",
+                        "background": "#f9f9fe",
+                        "on-tertiary-fixed-variant": "#564a73",
+                        "on-primary": "#f8f8ff",
+                        "surface": "#f9f9fe",
+                        "on-surface": "#2f333a",
+                        "surface-bright": "#f9f9fe",
+                        "secondary-fixed-dim": "#cbd5ea",
+                        "primary": "#44608a",
+                        "surface-variant": "#dfe2ec",
+                        "on-secondary-fixed": "#364051",
+                        "tertiary-dim": "#594c76",
+                        "on-background": "#2f333a",
+                        "surface-container-highest": "#dfe2ec",
+                        "primary-fixed-dim": "#9ebae9",
+                        "primary-fixed": "#acc8f8",
+                        "on-tertiary": "#fdf7ff",
+                        "on-primary-fixed-variant": "#2d4a72",
+                        "secondary-fixed": "#d9e3f8",
+                        "primary-container": "#acc8f8",
+                        "secondary-container": "#d9e3f8",
+                        "on-secondary-fixed-variant": "#525c6e",
+                        "error": "#a83836",
+                        "secondary": "#565f72",
+                        "on-tertiary-fixed": "#392e55",
+                        "surface-container-low": "#f2f3fa",
+                        "outline": "#777b84",
+                        "inverse-primary": "#acc8f8",
+                        "tertiary-container": "#dacafb",
+                        "on-surface-variant": "#5b5f68",
+                        "on-error-container": "#6e0a12",
+                        "on-error": "#fff7f6",
+                        "inverse-on-surface": "#9c9da1",
+                        "error-dim": "#67040d",
+                        "on-primary-container": "#244169",
+                        "secondary-dim": "#4a5365",
+                        "surface-container-high": "#e6e8f1",
+                        "primary-dim": "#38547d",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-container": "#485264",
+                        "surface-container": "#ecedf6",
+                        "tertiary-fixed": "#dacafb"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "display": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface min-h-screen pb-24">
+<!-- TopAppBar -->
+<header class="w-full top-0 sticky z-50 flex justify-between items-center px-4 py-3 bg-surface border-b border-outline-variant">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center overflow-hidden">
+<img alt="User profile" class="w-full h-full object-cover" data-alt="A professional headshot of a business executive in a high-key studio setting. The lighting is soft and flattering, highlighting a friendly but determined expression. The background is a clean, neutral gray that complements the corporate, high-trust aesthetic of a financial investment platform. The image is crisp with a shallow depth of field, focusing entirely on the subject's face." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC7gXoadH4glBNBDRzG0lcs2g9Mv5JZuu7nXC-0_1tPKRrK4i20xVMSI0mX0AbstA6QaoKsVutwHmXl6Tay-i6XackXpF5zY89b_56i758ggL4D4N1l3cKg809sZeZwRYCWGy6QYwAuVsFiaQSG1wkyUMaWn5yDgpMknol12ZwnH3N5t-oj2eTSPdEEUF9mdBCZFA_xxpZ3qHEWKwd6pocaQwoQmROWO25Nbo1p5PlOAR3VqHUqL_6RY2_YLPiua9rJv20pXUtsbNBP"/>
+</div>
+<h1 class="text-xl font-bold tracking-tight text-primary">InvestWise</h1>
+</div>
+<div class="flex items-center">
+<button class="p-2 rounded-full hover:bg-surface-container-low transition-colors active:scale-95 duration-150">
+<span class="material-symbols-outlined text-on-surface-variant">notifications</span>
+</button>
+</div>
+</header>
+<main class="max-w-5xl mx-auto p-4 md:p-8 space-y-8">
+<!-- Summary Section: Bento Cards -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-outline-variant/30 flex flex-col justify-between">
+<div>
+<span class="text-on-surface-variant text-sm font-medium">Available Capital</span>
+<h2 class="text-3xl font-bold text-primary mt-1">$128,450.00</h2>
+</div>
+<div class="mt-4 flex items-center text-xs text-secondary font-medium">
+<span class="material-symbols-outlined text-sm mr-1">trending_up</span>
+<span>+2.4% from last month</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-outline-variant/30 flex flex-col justify-between">
+<div>
+<span class="text-on-surface-variant text-sm font-medium">In Escrow</span>
+<h2 class="text-3xl font-bold text-on-surface mt-1">$45,000.00</h2>
+</div>
+<div class="mt-4 flex items-center text-xs text-on-surface-variant font-medium">
+<span class="material-symbols-outlined text-sm mr-1">lock</span>
+<span>3 Active holdings</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-outline-variant/30 flex flex-col justify-between">
+<div>
+<span class="text-on-surface-variant text-sm font-medium">Transaction Count</span>
+<h2 class="text-3xl font-bold text-on-surface mt-1">124</h2>
+</div>
+<div class="mt-4 flex items-center text-xs text-on-surface-variant font-medium">
+<span class="material-symbols-outlined text-sm mr-1">calendar_today</span>
+<span>Fiscal Year 2024</span>
+</div>
+</div>
+</section>
+<!-- Interactive Transaction Section -->
+<section class="bg-surface-container-low rounded-2xl p-6 md:p-8 border border-outline-variant/20 shadow-md">
+<h3 class="text-lg font-bold text-on-surface mb-6">Fund New Proposal</h3>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+<!-- Selectors -->
+<div class="space-y-6">
+<div>
+<label class="block text-sm font-semibold text-on-surface-variant mb-3">Payment Method</label>
+<div class="flex bg-surface-variant/50 p-1 rounded-xl">
+<button class="flex-1 py-2.5 px-4 rounded-lg bg-surface text-primary font-bold shadow-sm transition-all text-sm">
+                                Escrow Wallet
+                            </button>
+<button class="flex-1 py-2.5 px-4 rounded-lg text-on-surface-variant font-medium hover:bg-surface-container-high transition-all text-sm">
+                                Stripe Card
+                            </button>
+</div>
+</div>
+<div>
+<label class="block text-sm font-semibold text-on-surface-variant mb-2">Select Proposal</label>
+<div class="relative">
+<select class="w-full bg-surface-container-lowest border border-outline-variant rounded-xl px-4 py-3 appearance-none focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none text-on-surface transition-all">
+<option>Series A - GreenEnergy Solutions</option>
+<option>Seed - FinTech Spark</option>
+<option>Bridge Round - BioHealth Labs</option>
+</select>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant">expand_more</span>
+</div>
+</div>
+</div>
+<!-- Input & Action -->
+<div class="flex flex-col justify-between space-y-6">
+<div>
+<label class="block text-sm font-semibold text-on-surface-variant mb-2">Funding Amount</label>
+<div class="relative">
+<span class="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-bold text-lg">$</span>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-xl pl-8 pr-4 py-3 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none text-lg font-bold text-on-surface transition-all" placeholder="0.00" type="number"/>
+</div>
+<p class="text-xs text-on-surface-variant mt-2 italic">Minimum contribution: $5,000.00</p>
+</div>
+<button class="w-full bg-primary text-on-primary font-bold py-4 rounded-xl shadow-lg hover:bg-primary-dim active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">account_balance_wallet</span>
+                        Fund Escrow
+                    </button>
+</div>
+</div>
+</section>
+<!-- Bottom Section: Transaction History -->
+<section class="space-y-4">
+<div class="flex items-center justify-between">
+<h3 class="text-lg font-bold text-on-surface">Transaction History</h3>
+<button class="text-primary text-sm font-semibold hover:underline">View All</button>
+</div>
+<div class="space-y-3">
+<!-- Transaction Item 1 -->
+<div class="bg-surface-container-lowest p-4 rounded-xl border border-outline-variant/30 flex items-center justify-between hover:bg-surface-container-low transition-colors cursor-pointer group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-secondary-container/30 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">trending_up</span>
+</div>
+<div>
+<p class="font-bold text-on-surface">GreenEnergy Solutions - Series A</p>
+<p class="text-xs text-on-surface-variant">Oct 24, 2023 • ID: #VL-90231</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-bold text-on-surface">$15,000.00</p>
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-secondary-container text-on-secondary-container">Completed</span>
+</div>
+</div>
+<!-- Transaction Item 2 -->
+<div class="bg-surface-container-lowest p-4 rounded-xl border border-outline-variant/30 flex items-center justify-between hover:bg-surface-container-low transition-colors cursor-pointer group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-tertiary-container/30 flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined">pending_actions</span>
+</div>
+<div>
+<p class="font-bold text-on-surface">FinTech Spark - Seed Fund</p>
+<p class="text-xs text-on-surface-variant">Nov 12, 2023 • ID: #VL-90554</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-bold text-on-surface">$30,000.00</p>
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary-container text-on-primary-container">Pending</span>
+</div>
+</div>
+<!-- Transaction Item 3 -->
+<div class="bg-surface-container-lowest p-4 rounded-xl border border-outline-variant/30 flex items-center justify-between hover:bg-surface-container-low transition-colors cursor-pointer group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-error-container/20 flex items-center justify-center text-error">
+<span class="material-symbols-outlined">undo</span>
+</div>
+<div>
+<p class="font-bold text-on-surface">Urban Mobility - Exit</p>
+<p class="text-xs text-on-surface-variant">Sep 05, 2023 • ID: #VL-88219</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-bold text-on-surface">$5,000.00</p>
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-surface-variant text-on-surface-variant">Refunded</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-2 py-2 bg-surface border-t border-outline-variant shadow-sm">
+<a class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-xl px-3 py-1 transition-all active:opacity-80" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">account_balance_wallet</span>
+<span class="font-label text-xs antialiased">Wallet</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1 hover:bg-surface-container-high transition-all active:opacity-80" href="#">
+<span class="material-symbols-outlined">trending_up</span>
+<span class="font-label text-xs antialiased">Invest</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1 hover:bg-surface-container-high transition-all active:opacity-80" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="font-label text-xs antialiased">Proposals</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1 hover:bg-surface-container-high transition-all active:opacity-80" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label text-xs antialiased">Settings</span>
+</a>
+</nav>
+</body></html>

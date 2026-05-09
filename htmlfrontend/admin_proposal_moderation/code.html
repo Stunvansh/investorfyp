@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Proposal Moderation | VentureLedger Admin</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary": "#fdf7ff",
+                        "on-tertiary-fixed-variant": "#564a73",
+                        "surface-dim": "#d7dae4",
+                        "primary-fixed-dim": "#9ebae9",
+                        "on-surface-variant": "#5b5f68",
+                        "surface-variant": "#dfe2ec",
+                        "on-secondary": "#f8f8ff",
+                        "inverse-on-surface": "#9c9da1",
+                        "background": "#f9f9fe",
+                        "outline-variant": "#afb2bb",
+                        "on-primary-fixed-variant": "#2d4a72",
+                        "surface": "#f9f9fe",
+                        "error": "#a83836",
+                        "on-secondary-fixed": "#364051",
+                        "on-primary-container": "#244169",
+                        "primary": "#44608a",
+                        "inverse-surface": "#0c0e12",
+                        "on-error-container": "#6e0a12",
+                        "on-primary-container": "#244169",
+                        "primary": "#44608a",
+                        "inverse-surface": "#0c0e12",
+                        "on-error-container": "#6e0a12",
+                        "on-secondary-container": "#485264",
+                        "tertiary": "#655882",
+                        "secondary-dim": "#4a5365",
+                        "primary-fixed": "#acc8f8",
+                        "on-tertiary-container": "#4d4169",
+                        "surface-bright": "#f9f9fe",
+                        "on-surface": "#2f333a",
+                        "tertiary-dim": "#594c76",
+                        "primary-container": "#acc8f8",
+                        "error-container": "#fa746f",
+                        "on-primary-fixed": "#0a2c53",
+                        "on-error": "#fff7f6",
+                        "on-tertiary-fixed": "#392e55",
+                        "surface-container-low": "#f2f3fa",
+                        "secondary-fixed": "#d9e3f8",
+                        "surface-tint": "#44608a",
+                        "secondary-container": "#d9e3f8",
+                        "tertiary-container": "#dacafb",
+                        "primary-dim": "#38547d",
+                        "tertiary-fixed": "#dacafb",
+                        "tertiary-fixed-dim": "#ccbcec",
+                        "surface-container-highest": "#dfe2ec",
+                        "surface-container-high": "#e6e8f1",
+                        "secondary-fixed-dim": "#cbd5ea",
+                        "secondary": "#565f72",
+                        "inverse-primary": "#acc8f8",
+                        "on-background": "#2f333a",
+                        "error-dim": "#67040d",
+                        "outline": "#777b84",
+                        "surface-container": "#ecedf6",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-fixed-variant": "#525c6e",
+                        "on-primary": "#f8f8ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "display": ["Manrope"],
+                        "body": ["Manrope"],
+                        "label": ["Manrope"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Manrope', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface">
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-full flex flex-col p-4 z-40 bg-surface-container-low dark:bg-surface-dim border-r border-outline-variant dark:border-outline font-body text-label-lg w-64">
+<div class="flex items-center gap-3 px-2 mb-8">
+<div class="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary" data-weight="fill">account_balance</span>
+</div>
+<div>
+<h1 class="font-headline font-bold text-lg text-on-surface dark:text-surface-bright">VentureLedger</h1>
+<p class="text-[10px] uppercase tracking-wider text-outline">Admin Control Panel</p>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-outline-variant hover:text-on-surface hover:bg-surface-container-high dark:hover:bg-on-secondary-fixed-variant transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-outline-variant hover:text-on-surface hover:bg-surface-container-high dark:hover:bg-on-secondary-fixed-variant transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">group</span>
+<span>User Management</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 bg-secondary-container text-on-secondary-container dark:bg-secondary dark:text-on-secondary rounded-lg font-bold duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">fact_check</span>
+<span>Proposal Moderation</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-outline-variant hover:text-on-surface hover:bg-surface-container-high dark:hover:bg-on-secondary-fixed-variant transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+<span>Escrow Settlements</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-outline-variant hover:text-on-surface hover:bg-surface-container-high dark:hover:bg-on-secondary-fixed-variant transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">history</span>
+<span>System Logs</span>
+</a>
+</nav>
+<div class="mt-auto pt-4 border-t border-outline-variant">
+<button class="w-full bg-primary text-on-primary py-2.5 px-4 rounded-xl font-bold flex items-center justify-center gap-2 mb-4 hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-sm">add</span>
+<span>New Report</span>
+</button>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span>Settings</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-error hover:bg-error-container/10 transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span>Logout</span>
+</a>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="ml-64 min-h-screen">
+<!-- TopNavBar -->
+<header class="sticky top-0 z-50 flex items-center justify-between px-6 py-3 w-full bg-surface/95 backdrop-blur-sm border-b border-outline-variant dark:border-outline">
+<div class="flex items-center gap-8">
+<h2 class="font-headline font-black text-xl text-primary dark:text-primary-fixed">VentureLedger</h2>
+<div class="relative hidden lg:block w-96">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-full py-2 pl-10 pr-4 focus:ring-2 focus:ring-primary focus:border-transparent outline-none text-sm" placeholder="Search proposals, startups, or founders..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 pr-4 border-r border-outline-variant">
+<button class="p-2 text-on-surface-variant hover:bg-surface-container transition-colors rounded-full relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-surface"></span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container transition-colors rounded-full">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container transition-colors rounded-full">
+<span class="material-symbols-outlined">help</span>
+</button>
+</div>
+<div class="flex items-center gap-3 pl-2">
+<div class="text-right hidden sm:block">
+<p class="text-sm font-bold leading-none">Admin User</p>
+<p class="text-[11px] text-outline uppercase tracking-wider">Super Admin</p>
+</div>
+<img alt="Admin User Profile" class="w-10 h-10 rounded-full border-2 border-primary-container object-cover" data-alt="A professional headshot of a middle-aged male administrator with a confident expression, wearing a crisp navy suit and spectacles. He is positioned in a bright, high-end modern office with soft-focus glass partitions and architectural lighting in the background, reinforcing a professional fintech atmosphere with clean light-mode aesthetics." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA_-3DrnxFQi9JUdRmukS8g29L_hkLy2hCjAyJTDzDhQethZ8N7lUNO0bbi_1KPQBtO5WjeSV2aQdU0l5u2o5HLahU8FR0q3sMEDuQGirPvDoy-NByoCprExkWEoQBPnh153xUEZduzXlAqxlRAby3du2Wiheho7t1F0WQjWSntsQ9CKIKTefIFA9bsBU23JlkbQoGjiZBgsIHO8Ud0NaWICb1nSmJF-zo9Rfrp2Cwb58Rc2Md5Fb1yxEa-TEo8u1VuWu0xm3iQN5SX"/>
+</div>
+</div>
+</header>
+<!-- Content Body -->
+<div class="p-8 max-w-7xl mx-auto">
+<div class="mb-8">
+<h3 class="text-2xl font-black font-headline tracking-tight text-on-surface">Proposal Moderation</h3>
+<p class="text-on-surface-variant">Review and manage incoming investment opportunities across the ledger.</p>
+</div>
+<!-- KPI Bento Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+<div class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant shadow-sm flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<div class="w-12 h-12 bg-primary-container rounded-xl flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">pending_actions</span>
+</div>
+<span class="text-error font-bold text-xs bg-error-container/10 px-2 py-1 rounded-full">+12% this week</span>
+</div>
+<div>
+<p class="text-sm text-outline font-medium">Pending Proposals</p>
+<h4 class="text-3xl font-black text-on-surface mt-1">42</h4>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant shadow-sm flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<div class="w-12 h-12 bg-tertiary-container rounded-xl flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">analytics</span>
+</div>
+<span class="text-on-surface-variant font-bold text-xs bg-surface-container px-2 py-1 rounded-full">Target: 85%</span>
+</div>
+<div>
+<p class="text-sm text-outline font-medium">Approval Rate</p>
+<h4 class="text-3xl font-black text-on-surface mt-1">78.4%</h4>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant shadow-sm flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<div class="w-12 h-12 bg-secondary-container rounded-xl flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">payments</span>
+</div>
+<span class="text-primary font-bold text-xs bg-primary-container/20 px-2 py-1 rounded-full">Active</span>
+</div>
+<div>
+<p class="text-sm text-outline font-medium">Active Funding Rounds</p>
+<h4 class="text-3xl font-black text-on-surface mt-1">156</h4>
+</div>
+</div>
+</div>
+<!-- Proposals Table Section -->
+<div class="bg-surface-container-lowest rounded-3xl border border-outline-variant shadow-sm overflow-hidden">
+<div class="px-6 py-4 border-b border-outline-variant flex items-center justify-between bg-surface-container-low/30">
+<div class="flex items-center gap-4">
+<h5 class="font-bold text-on-surface">Queue Management</h5>
+<div class="flex gap-2">
+<button class="text-xs font-bold px-3 py-1 bg-primary text-on-primary rounded-full">All</button>
+<button class="text-xs font-bold px-3 py-1 text-on-surface-variant hover:bg-surface-container rounded-full">Pending</button>
+<button class="text-xs font-bold px-3 py-1 text-on-surface-variant hover:bg-surface-container rounded-full">Flagged</button>
+</div>
+</div>
+<button class="flex items-center gap-2 text-sm text-primary font-bold hover:underline">
+<span class="material-symbols-outlined text-sm">filter_list</span>
+                        Advanced Filters
+                    </button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low/50 text-[11px] uppercase tracking-widest text-outline">
+<th class="px-6 py-4 font-black">Startup Name</th>
+<th class="px-6 py-4 font-black text-center">Funding Goal</th>
+<th class="px-6 py-4 font-black text-center">Stage</th>
+<th class="px-6 py-4 font-black text-center">Status</th>
+<th class="px-6 py-4 font-black text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/30">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-lowest/80 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded bg-surface-container flex items-center justify-center overflow-hidden">
+<img alt="Nexus AI Logo" class="w-full h-full object-cover" data-alt="A clean, minimalist logo of a modern tech startup titled Nexus AI, displayed on a square background. The visual represents a futuristic network node in vibrant electric blue and deep slate gray, conveying a professional and high-tech fintech brand identity within a bright, airy digital context." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDV_uYT9GJiqiPRBbJnj-4fvRKF6btc9r6zFc6SbY7UCcAdg_zw0Std7joXI7iD9q0miNadum0aWCltGZhyC5bQ4ZtFy3aQ1q6yETlTzYNZN6yCM6W1AmdPK62Ibtq4e1YFoww7LLCJxZAGiQMjugZq9juCS26FyoykZyih0GITXAJuqFXe3zDWHnesy-PWwn9gE96MvrpsM_FM7ddyNtmgkisCLXOSB5W4BFqLK8gzGa8x5wCXlYjQct2fU430s52wg2l3WLy7vGHY"/>
+</div>
+<div>
+<p class="font-bold text-on-surface">Nexus AI</p>
+<p class="text-xs text-outline">Next-gen LLM Infrastructure</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 text-center font-mono text-sm font-medium">$2,400,000</td>
+<td class="px-6 py-4 text-center">
+<span class="text-xs font-bold px-2 py-1 bg-tertiary-container/30 text-tertiary rounded">Seed</span>
+</td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center gap-1.5 text-xs font-bold text-secondary bg-secondary-container/20 px-2 py-1 rounded-full">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                                        Pending
+                                    </span>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="bg-primary text-on-primary text-xs font-bold py-1.5 px-4 rounded-lg hover:opacity-90 transition-opacity">Approve</button>
+<button class="border border-outline-variant text-error text-xs font-bold py-1.5 px-4 rounded-lg hover:bg-error/5 transition-colors">Flag/Review</button>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-lowest/80 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded bg-surface-container flex items-center justify-center overflow-hidden">
+<img alt="Solaris Grid Logo" class="w-full h-full object-cover" data-alt="A sophisticated abstract brand mark for an energy-tech startup named Solaris Grid. The logo features interlocking golden and charcoal hexagons, suggesting clean energy and structured growth. The image is captured in a high-resolution, professional studio setting with soft gradient shadows, perfectly aligning with a sleek fintech dashboard's high-end aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBV_sIoY2YpG01Ljhq5-3Q-tm1-jhMbsiOVhXVPa3Z5f28mbPABoLjsN5IjK7NU1_j32TzeOxb54PkxxD6qR4G6nszCuvevGJD8YCj-UjS14cYJ8_qS-NyxYtFugpb0daETcY1a9pIiHT158crCgM2N6NaPNGCpJxC1Ty8k5siE6t6mGEfKldvHCUqAlkdhZgLpheb24U69Y6Xt5d63NKPy9CXuhDGlO2qSfYwzKmhH9cJq-JfQtXSY7O-FFgqj9E8oQrfFImp9hlID"/>
+</div>
+<div>
+<p class="font-bold text-on-surface">Solaris Grid</p>
+<p class="text-xs text-outline">Decentralized Energy Ledger</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 text-center font-mono text-sm font-medium">$12,500,000</td>
+<td class="px-6 py-4 text-center">
+<span class="text-xs font-bold px-2 py-1 bg-primary-container/30 text-primary rounded">Series A</span>
+</td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center gap-1.5 text-xs font-bold text-error bg-error-container/10 px-2 py-1 rounded-full">
+<span class="w-1.5 h-1.5 rounded-full bg-error"></span>
+                                        Flagged
+                                    </span>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="bg-primary text-on-primary text-xs font-bold py-1.5 px-4 rounded-lg hover:opacity-90 transition-opacity">Approve</button>
+<button class="bg-error text-on-error text-xs font-bold py-1.5 px-4 rounded-lg hover:opacity-90 transition-opacity">View Issues</button>
+</div>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-lowest/80 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded bg-surface-container flex items-center justify-center overflow-hidden">
+<img alt="BioFlux Labs Logo" class="w-full h-full object-cover" data-alt="A modern biotech startup logo for BioFlux Labs, featuring a stylized fluid helix in deep magenta and navy. The logo is presented on a clean white field within a rounded square icon, shot in a bright medical-grade office environment. The style is sharp, clean, and professional, designed to fit into a luxury fintech interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBxRIW8UYWd03AU1hnEvfhSfu4ZlzC81hwODyWu0zsVIfMWtWqEPld2H0EYl7AQOpH8vONo93O8hjN37qfmnQahI9vW_pbbqhWbRuabtDOAvYMYwVfokm6q-SudzrDuneWpiVpH9_jhUkoyEtSH0pJoPRv3EKypCfFO0f55902OIjsdSLCKagJOP5BMgJXwyY_pvlln6-679sViiuuedCXn-ft2p9HnvdugtKsxGFuqzx-9S3_3B8Zyaoy8jcZnzwmQdN6gP5o-t6iy"/>
+</div>
+<div>
+<p class="font-bold text-on-surface">BioFlux Labs</p>
+<p class="text-xs text-outline">Synthetic Biology &amp; Yields</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 text-center font-mono text-sm font-medium">$8,200,000</td>
+<td class="px-6 py-4 text-center">
+<span class="text-xs font-bold px-2 py-1 bg-tertiary-container/30 text-tertiary rounded">Pre-Seed</span>
+</td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center gap-1.5 text-xs font-bold text-secondary bg-secondary-container/20 px-2 py-1 rounded-full">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                                        Pending
+                                    </span>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="bg-primary text-on-primary text-xs font-bold py-1.5 px-4 rounded-lg hover:opacity-90 transition-opacity">Approve</button>
+<button class="border border-outline-variant text-error text-xs font-bold py-1.5 px-4 rounded-lg hover:bg-error/5 transition-colors">Flag/Review</button>
+</div>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container-lowest/80 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded bg-surface-container flex items-center justify-center overflow-hidden">
+<img alt="Quantum Vault Logo" class="w-full h-full object-cover" data-alt="A high-security fintech startup logo for Quantum Vault. The design utilizes sharp geometric lines forming a safe box in polished silver and royal blue. The background is a soft, professional light-grey, creating a sense of trust and cutting-edge security. The overall visual tone is sophisticated and data-driven, fitting a professional admin dashboard." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCJAIgJ3TatSlhK_73b5Ua6ceCfK985_5nVmsB-DTwWc_VsevEvFnqcYbfLwfSggmYCAXcOC_Yd0Y_GpeiXbA7VyJqsCgAQvIixwjLDXCPOtcxlbkLAxfGEQ9VuBzHbWrGyohqKZX394VSQicoT7LoEVPfXNi9cbGMoma-4QgAbq2OnfwKgP5wEtOty1DbXIjWklY5EB_LwW9yoSCcaTlSWRel2rH1YMRd8Z0d4b0jvtHiy9iNFYUlOtoAK7mXvXvg6tuJTqdwCEJJs"/>
+</div>
+<div>
+<p class="font-bold text-on-surface">Quantum Vault</p>
+<p class="text-xs text-outline">Post-Quantum Cryptography</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 text-center font-mono text-sm font-medium">$5,000,000</td>
+<td class="px-6 py-4 text-center">
+<span class="text-xs font-bold px-2 py-1 bg-primary-container/30 text-primary rounded">Series B</span>
+</td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center gap-1.5 text-xs font-bold text-secondary bg-secondary-container/20 px-2 py-1 rounded-full">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                                        Pending
+                                    </span>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="bg-primary text-on-primary text-xs font-bold py-1.5 px-4 rounded-lg hover:opacity-90 transition-opacity">Approve</button>
+<button class="border border-outline-variant text-error text-xs font-bold py-1.5 px-4 rounded-lg hover:bg-error/5 transition-colors">Flag/Review</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="px-6 py-4 border-t border-outline-variant flex items-center justify-between bg-surface-container-low/30">
+<p class="text-xs text-outline font-medium">Showing 4 of 42 pending proposals</p>
+<div class="flex gap-1">
+<button class="p-2 rounded hover:bg-surface-container transition-colors"><span class="material-symbols-outlined text-sm">chevron_left</span></button>
+<button class="px-3 py-1 text-xs font-bold bg-primary text-on-primary rounded">1</button>
+<button class="px-3 py-1 text-xs font-bold text-on-surface-variant hover:bg-surface-container rounded">2</button>
+<button class="px-3 py-1 text-xs font-bold text-on-surface-variant hover:bg-surface-container rounded">3</button>
+<button class="p-2 rounded hover:bg-surface-container transition-colors"><span class="material-symbols-outlined text-sm">chevron_right</span></button>
+</div>
+</div>
+</div>
+<!-- Footer Meta -->
+<footer class="mt-12 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-outline border-t border-outline-variant pt-6">
+<div class="flex gap-6">
+<span>© 2024 VentureLedger Inc.</span>
+<a class="hover:text-primary transition-colors" href="#">Privacy Policy</a>
+<a class="hover:text-primary transition-colors" href="#">Terms of Service</a>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+<span>All Systems Operational (v2.4.1)</span>
+</div>
+</footer>
+</div>
+</main>
+</body></html>

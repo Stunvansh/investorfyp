@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VentureLedger Dashboard</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary-fixed": "#392e55",
+                    "background": "#f9f9fe",
+                    "surface-container": "#ecedf6",
+                    "on-primary-fixed-variant": "#2d4a72",
+                    "on-tertiary-container": "#4d4169",
+                    "surface-container-low": "#f2f3fa",
+                    "inverse-surface": "#0c0e12",
+                    "surface-container-lowest": "#ffffff",
+                    "tertiary-dim": "#594c76",
+                    "tertiary-fixed-dim": "#ccbcec",
+                    "surface-container-high": "#e6e8f1",
+                    "on-error": "#fff7f6",
+                    "tertiary": "#655882",
+                    "inverse-primary": "#acc8f8",
+                    "on-surface-variant": "#5b5f68",
+                    "tertiary-container": "#dacafb",
+                    "primary-fixed": "#acc8f8",
+                    "error-dim": "#67040d",
+                    "surface-container-highest": "#dfe2ec",
+                    "secondary-fixed-dim": "#cbd5ea",
+                    "surface-bright": "#f9f9fe",
+                    "on-secondary-fixed-variant": "#525c6e",
+                    "secondary-dim": "#4a5365",
+                    "primary": "#44608a",
+                    "surface-dim": "#d7dae4",
+                    "surface": "#f9f9fe",
+                    "secondary-fixed": "#d9e3f8",
+                    "secondary-container": "#d9e3f8",
+                    "on-secondary": "#f8f8ff",
+                    "error": "#a83836",
+                    "on-primary-container": "#244169",
+                    "on-background": "#2f333a",
+                    "primary-container": "#acc8f8",
+                    "tertiary-fixed": "#dacafb",
+                    "on-tertiary-fixed-variant": "#564a73",
+                    "outline-variant": "#afb2bb",
+                    "on-primary": "#f8f8ff",
+                    "primary-fixed-dim": "#9ebae9",
+                    "error-container": "#fa746f",
+                    "secondary": "#565f72",
+                    "on-secondary-fixed": "#364051",
+                    "surface-variant": "#dfe2ec",
+                    "outline": "#777b84",
+                    "primary-dim": "#38547d",
+                    "on-secondary-container": "#485264",
+                    "on-tertiary": "#fdf7ff",
+                    "on-error-container": "#6e0a12",
+                    "on-surface": "#2f333a",
+                    "surface-tint": "#44608a",
+                    "inverse-on-surface": "#9c9da1",
+                    "on-primary-fixed": "#0a2c53"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Manrope"],
+                    "display": ["Manrope"],
+                    "body": ["Manrope"],
+                    "label": ["Manrope"]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Manrope', sans-serif; }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen">
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-full flex flex-col p-4 z-50 overflow-y-auto bg-surface-container-low border-r border-outline-variant w-64">
+<div class="mb-10 px-4">
+<h2 class="text-lg font-headline font-bold text-on-surface">Growth Ventures</h2>
+<p class="text-xs text-on-surface-variant">Series A Funding</p>
+</div>
+<nav class="flex flex-col gap-2">
+<!-- Active State: Dashboard -->
+<a class="flex items-center gap-3 bg-secondary-container text-on-secondary-container rounded-lg px-4 py-2.5 font-semibold scale-[0.98] transition-transform duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center gap-3 text-on-surface-variant px-4 py-2.5 hover:bg-surface-container-high rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="description">description</span>
+<span>Proposals</span>
+</a>
+<a class="flex items-center gap-3 text-on-surface-variant px-4 py-2.5 hover:bg-surface-container-high rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span>Investors</span>
+</a>
+<a class="flex items-center gap-3 text-on-surface-variant px-4 py-2.5 hover:bg-surface-container-high rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span>Settings</span>
+</a>
+</nav>
+<div class="mt-auto pt-6 px-4 border-t border-outline-variant">
+<div class="flex items-center gap-3">
+<img alt="Entrepreneur Profile" class="w-10 h-10 rounded-full border border-outline-variant" data-alt="A professional headshot of a confident tech entrepreneur with a warm smile, wearing a modern navy blazer. The lighting is bright and high-key, suitable for a professional finance application. The background is a blurred high-end office interior with soft blue and white tones that match the global fintech aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCnZ6EDAmjjwXQVI5CVo2TDx2pV1V-XfGCuLZHtJ3ia4a79RC1vFbn2UnozBjQG2EcxpUAKAVPg0MAVyHQjjhD_6VQlLoJcdtV9pBUf8fGTgIuabKw5SMjcdcz59Y9BjPP9OMpMwFtpNrTHPU99mYDZ1kAKu0tCbQvSQK0A0uiLiD2ZVVbr4JHNXrDhm9xCFWYhb03cJ-ODOwsXAbsc5KLLffiJKByBjOjd_chUgemTkwCADnG9K2L1-TOyRwqgoCtw0INSK1bVrLxK"/>
+<div>
+<p class="text-sm font-bold text-on-surface">Alex Chen</p>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-wider">Founder &amp; CEO</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- TopNavBar -->
+<header class="sticky top-0 z-40 flex justify-between items-center px-6 py-2 w-full max-w-full bg-surface border-b border-outline-variant pl-[17rem]">
+<div class="flex items-center gap-4">
+<span class="text-xl font-headline font-black text-primary">FinVent</span>
+<div class="relative ml-4">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm" data-icon="search">search</span>
+<input class="bg-surface-container border-none rounded-full py-1.5 pl-10 pr-4 text-sm w-64 focus:ring-2 focus:ring-primary-container outline-none" placeholder="Search funding..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors relative">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-surface"></span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+</button>
+<div class="h-6 w-px bg-outline-variant mx-2"></div>
+<button class="bg-primary text-on-primary px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90 active:scale-95 transition-all">
+                Upgrade Plan
+            </button>
+</div>
+</header>
+<!-- Main Content -->
+<main class="pl-[17rem] p-8 max-w-[1600px] mx-auto">
+<div class="flex items-center justify-between mb-8">
+<div>
+<h1 class="text-2xl font-black text-on-surface">Dashboard Overview</h1>
+<p class="text-on-surface-variant">Welcome back, Alex. Here's what's happening with your funding rounds.</p>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center gap-2 bg-surface-container-highest text-on-surface px-4 py-2.5 rounded-xl font-bold hover:bg-primary-container transition-all">
+<span class="material-symbols-outlined text-[18px]" data-icon="person_add">person_add</span>
+                    Invite Investor
+                </button>
+<button class="flex items-center gap-2 bg-primary text-on-primary px-5 py-2.5 rounded-xl font-bold hover:shadow-lg hover:shadow-primary/20 transition-all">
+<span class="material-symbols-outlined text-[18px]" data-icon="add_circle">add_circle</span>
+                    Create New Proposal
+                </button>
+</div>
+</div>
+<!-- KPI Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+<div class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/50 shadow-sm">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-primary-container rounded-lg">
+<span class="material-symbols-outlined text-on-primary-container" data-icon="payments">payments</span>
+</div>
+<span class="text-xs font-bold text-success flex items-center gap-1 text-[#2e7d32]">
+<span class="material-symbols-outlined text-[14px]" data-icon="trending_up">trending_up</span>
+                        +12%
+                    </span>
+</div>
+<p class="text-sm text-on-surface-variant font-medium">Total Funding Raised</p>
+<h3 class="text-2xl font-black text-on-surface mt-1">$4,250,000</h3>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/50 shadow-sm">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-secondary-container rounded-lg">
+<span class="material-symbols-outlined text-on-secondary-container" data-icon="assignment">assignment</span>
+</div>
+<span class="text-xs font-bold text-on-surface-variant">Stable</span>
+</div>
+<p class="text-sm text-on-surface-variant font-medium">Active Proposals</p>
+<h3 class="text-2xl font-black text-on-surface mt-1">12</h3>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/50 shadow-sm">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-tertiary-container rounded-lg">
+<span class="material-symbols-outlined text-on-tertiary-container" data-icon="visibility">visibility</span>
+</div>
+<span class="text-xs font-bold text-[#2e7d32] flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="trending_up">trending_up</span>
+                        +24%
+                    </span>
+</div>
+<p class="text-sm text-on-surface-variant font-medium">Investor Views</p>
+<h3 class="text-2xl font-black text-on-surface mt-1">1,842</h3>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/50 shadow-sm">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-error-container rounded-lg">
+<span class="material-symbols-outlined text-on-error-container" data-icon="pending_actions">pending_actions</span>
+</div>
+<span class="text-xs font-bold text-error">Critical</span>
+</div>
+<p class="text-sm text-on-surface-variant font-medium">Pending Requests</p>
+<h3 class="text-2xl font-black text-on-surface mt-1">08</h3>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- Middle Section: Proposal Milestones -->
+<div class="lg:col-span-2 flex flex-col gap-6">
+<div class="bg-surface-container-lowest rounded-2xl border border-outline-variant/50 shadow-sm overflow-hidden">
+<div class="px-6 py-5 border-b border-outline-variant/30 flex justify-between items-center">
+<h2 class="font-bold text-on-surface">Proposal Milestones</h2>
+<button class="text-primary text-sm font-bold hover:underline">View All</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead>
+<tr class="text-[11px] uppercase tracking-wider text-on-surface-variant bg-surface-container-low/50">
+<th class="px-6 py-4 font-bold">Proposal Name</th>
+<th class="px-6 py-4 font-bold">Stage</th>
+<th class="px-6 py-4 font-bold">Completion</th>
+<th class="px-6 py-4 font-bold">Last Updated</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/20">
+<tr class="hover:bg-surface-container-low/30 transition-colors">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-primary-container/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-[18px]" data-icon="rocket_launch">rocket_launch</span>
+</div>
+<span class="font-semibold text-on-surface">Series A - Infrastructure</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<span class="bg-primary-container/30 text-on-primary-container text-xs font-bold px-2.5 py-1 rounded-full">Under Review</span>
+</td>
+<td class="px-6 py-5">
+<div class="w-full bg-surface-container rounded-full h-1.5 max-w-[100px]">
+<div class="bg-primary h-1.5 rounded-full" style="width: 75%"></div>
+</div>
+<span class="text-[10px] text-on-surface-variant font-bold mt-1 block">75%</span>
+</td>
+<td class="px-6 py-5 text-sm text-on-surface-variant">2h ago</td>
+</tr>
+<tr class="hover:bg-surface-container-low/30 transition-colors">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-secondary-container/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary text-[18px]" data-icon="bolt">bolt</span>
+</div>
+<span class="font-semibold text-on-surface">Growth Accelerator Q4</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<span class="bg-tertiary-container/30 text-on-tertiary-container text-xs font-bold px-2.5 py-1 rounded-full">Due Diligence</span>
+</td>
+<td class="px-6 py-5">
+<div class="w-full bg-surface-container rounded-full h-1.5 max-w-[100px]">
+<div class="bg-tertiary h-1.5 rounded-full" style="width: 40%"></div>
+</div>
+<span class="text-[10px] text-on-surface-variant font-bold mt-1 block">40%</span>
+</td>
+<td class="px-6 py-5 text-sm text-on-surface-variant">Yesterday</td>
+</tr>
+<tr class="hover:bg-surface-container-low/30 transition-colors">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-on-tertiary-fixed/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-on-tertiary-fixed text-[18px]" data-icon="architecture">architecture</span>
+</div>
+<span class="font-semibold text-on-surface">Cloud Native Expansion</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<span class="bg-surface-container-highest text-on-surface-variant text-xs font-bold px-2.5 py-1 rounded-full">Draft</span>
+</td>
+<td class="px-6 py-5">
+<div class="w-full bg-surface-container rounded-full h-1.5 max-w-[100px]">
+<div class="bg-on-surface-variant h-1.5 rounded-full" style="width: 15%"></div>
+</div>
+<span class="text-[10px] text-on-surface-variant font-bold mt-1 block">15%</span>
+</td>
+<td class="px-6 py-5 text-sm text-on-surface-variant">3 days ago</td>
+</tr>
+<tr class="hover:bg-surface-container-low/30 transition-colors">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-success/10 flex items-center justify-center bg-[#e8f5e9]">
+<span class="material-symbols-outlined text-[#2e7d32] text-[18px]" data-icon="check_circle">check_circle</span>
+</div>
+<span class="font-semibold text-on-surface">Seed Bridge Extension</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<span class="bg-[#e8f5e9] text-[#2e7d32] text-xs font-bold px-2.5 py-1 rounded-full">Completed</span>
+</td>
+<td class="px-6 py-5">
+<div class="w-full bg-surface-container rounded-full h-1.5 max-w-[100px]">
+<div class="bg-[#2e7d32] h-1.5 rounded-full" style="width: 100%"></div>
+</div>
+<span class="text-[10px] text-[#2e7d32] font-bold mt-1 block">100%</span>
+</td>
+<td class="px-6 py-5 text-sm text-on-surface-variant">May 12, 2024</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="bg-on-primary-fixed text-on-primary rounded-3xl p-8 relative overflow-hidden flex items-center min-h-[220px]">
+<div class="relative z-10 max-w-md">
+<h2 class="text-2xl font-black mb-2">Unlock Global Capital</h2>
+<p class="text-primary-fixed opacity-90 mb-6">Connect with over 5,000+ verified institutional investors across the globe.</p>
+<button class="bg-primary-container text-on-primary-container px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:scale-105 transition-transform">
+                            Explore Network
+                            <span class="material-symbols-outlined" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+<div class="absolute right-0 top-0 h-full w-1/2 opacity-30 pointer-events-none">
+<div class="w-full h-full bg-gradient-to-l from-primary to-transparent"></div>
+</div>
+</div>
+</div>
+<!-- Right/Side Panel: Incoming Investor Requests -->
+<div class="flex flex-col gap-6">
+<div class="bg-surface-container-lowest rounded-2xl border border-outline-variant/50 shadow-sm p-6">
+<div class="flex justify-between items-center mb-6">
+<h2 class="font-bold text-on-surface">Investor Requests</h2>
+<span class="bg-error text-on-error text-[10px] font-black px-2 py-0.5 rounded-full">3 NEW</span>
+</div>
+<div class="flex flex-col gap-4">
+<!-- Request 1 -->
+<div class="p-4 rounded-xl bg-surface-container-low border border-outline-variant/20">
+<div class="flex items-center gap-3 mb-3">
+<img alt="Investor" class="w-10 h-10 rounded-full" data-alt="A formal portrait of a senior investment partner from a top-tier venture capital firm, wearing a tailored charcoal suit and a light blue shirt. The background is a crisp, professional architectural setting with clean glass lines and neutral tones, representing a high-trust financial environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAj2T8Z-0rpJTtB26jKbxAUEymcHF9pckqRti6ybTDzUsZcmr0GaiGQZXJHQTeKZ4NfEuYTohBbsR3EN9Nv8t0uDeyMLkivV3AhdXN_f8sHiEQ-F2J_IR_t099lvpbgOKckQnrhI0Rn44hOR5l-Fybb2t7ZzJ7rtojMbf9uEyJTTcM5xjV3Lr-c2AI1Bd2a_cbPikz4Xvu4wwM8qs6Qzykwc9_Vzht1AvWFD2A0w4yC4hYdTvyv3mhzYQ2flroShOO05-3K2prvBy48"/>
+<div>
+<p class="text-sm font-bold text-on-surface leading-tight">Sarah Jenkins</p>
+<p class="text-[11px] text-on-surface-variant">Blue Chip Ventures</p>
+</div>
+</div>
+<p class="text-xs text-on-surface-variant mb-4 italic">"Impressed by your growth metrics. Would love to see your Series A pitch deck."</p>
+<div class="grid grid-cols-2 gap-3">
+<button class="py-2 text-xs font-bold border border-outline-variant text-on-surface-variant rounded-lg hover:bg-surface-container-highest transition-colors">Reject</button>
+<button class="py-2 text-xs font-bold bg-primary text-on-primary rounded-lg hover:opacity-90 transition-opacity">Accept</button>
+</div>
+</div>
+<!-- Request 2 -->
+<div class="p-4 rounded-xl bg-surface-container-low border border-outline-variant/20">
+<div class="flex items-center gap-3 mb-3">
+<img alt="Investor" class="w-10 h-10 rounded-full" data-alt="A portrait of a modern fintech investor with a tech-savvy look, wearing a minimalist black sweater against a soft-focus tech hub background. The lighting is bright and modern, using the primary navy and light blue accents of the brand's palette to create a cohesive, trustworthy professional image." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDXlYpl6lWYQyHLSx7BipXXzoSyO97txOf_zfFsmLw0VKIYA6jSYTVJtissxB0kh6qk1-pKch9BGaOAbV97A0st_WxfiiGL2jQTjrXH2dW2_wdTPH0WgNCBWg4eR83yOQxaiOXcf0i6mATXgpIq9CqVc5yoCB7F42xMb3WuNZfCK8ViAt-znexCpFbgm3yZz0uDUmJzj3grTz478Rx90hZ6urHs0zkfgUnKs0il7JxwiEtmEbz9Hg9xBj60AJoWxKVdmLCiuJX8UyK1"/>
+<div>
+<p class="text-sm font-bold text-on-surface leading-tight">Marcus Thorne</p>
+<p class="text-[11px] text-on-surface-variant">Evolve Capital</p>
+</div>
+</div>
+<p class="text-xs text-on-surface-variant mb-4 italic">"Requesting access to the virtual data room for due diligence review."</p>
+<div class="grid grid-cols-2 gap-3">
+<button class="py-2 text-xs font-bold border border-outline-variant text-on-surface-variant rounded-lg hover:bg-surface-container-highest transition-colors">Reject</button>
+<button class="py-2 text-xs font-bold bg-primary text-on-primary rounded-lg hover:opacity-90 transition-opacity">Accept</button>
+</div>
+</div>
+<!-- Request 3 -->
+<div class="p-4 rounded-xl bg-surface-container-low border border-outline-variant/20">
+<div class="flex items-center gap-3 mb-3">
+<div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-secondary-container" data-icon="corporate_fare">corporate_fare</span>
+</div>
+<div>
+<p class="text-sm font-bold text-on-surface leading-tight">Apex Partners</p>
+<p class="text-[11px] text-on-surface-variant">Institutional LP</p>
+</div>
+</div>
+<p class="text-xs text-on-surface-variant mb-4 italic">"New meeting request: Thursday at 10:00 AM PST."</p>
+<div class="grid grid-cols-2 gap-3">
+<button class="py-2 text-xs font-bold border border-outline-variant text-on-surface-variant rounded-lg hover:bg-surface-container-highest transition-colors">Reject</button>
+<button class="py-2 text-xs font-bold bg-primary text-on-primary rounded-lg hover:opacity-90 transition-opacity">Accept</button>
+</div>
+</div>
+</div>
+<button class="w-full mt-6 py-3 text-sm font-bold text-primary hover:bg-primary/5 rounded-xl transition-colors border border-dashed border-primary/30">
+                        View Archive
+                    </button>
+</div>
+<div class="bg-surface-container-highest/30 rounded-2xl p-6 border border-outline-variant/30">
+<h3 class="font-bold text-on-surface mb-4">Round Progress</h3>
+<div class="space-y-4">
+<div>
+<div class="flex justify-between text-xs font-bold mb-1">
+<span class="text-on-surface-variant">Soft Circle Commitment</span>
+<span class="text-primary">$2.1M / $5M</span>
+</div>
+<div class="w-full bg-surface-container-high rounded-full h-2">
+<div class="bg-primary h-2 rounded-full" style="width: 42%"></div>
+</div>
+</div>
+<p class="text-[11px] text-on-surface-variant leading-relaxed">
+                            You are <strong>$2.9M</strong> away from your Series A target. 12 investors currently reviewing documents.
+                        </p>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- FAB for Create New Proposal -->
+<div class="fixed bottom-8 right-8 flex flex-col gap-3">
+<button class="w-14 h-14 bg-primary text-on-primary rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all group relative">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+<span class="absolute right-full mr-4 bg-inverse-surface text-background px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">New Proposal</span>
+</button>
+</div>
+</body></html>

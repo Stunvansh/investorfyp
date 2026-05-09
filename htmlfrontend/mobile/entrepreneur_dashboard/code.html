@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Founder Hub - Entrepreneur Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface": "#f9f9fe",
+                        "tertiary-container": "#dacafb",
+                        "error-container": "#fa746f",
+                        "surface-bright": "#f9f9fe",
+                        "on-surface-variant": "#5b5f68",
+                        "surface-variant": "#dfe2ec",
+                        "secondary-container": "#d9e3f8",
+                        "tertiary-fixed-dim": "#ccbcec",
+                        "on-primary-container": "#244169",
+                        "surface-container-high": "#e6e8f1",
+                        "primary-fixed": "#acc8f8",
+                        "on-background": "#2f333a",
+                        "on-primary-fixed": "#0a2c53",
+                        "outline-variant": "#afb2bb",
+                        "on-primary-fixed-variant": "#2d4a72",
+                        "secondary-fixed-dim": "#cbd5ea",
+                        "on-tertiary-fixed-variant": "#564a73",
+                        "surface-container-low": "#f2f3fa",
+                        "secondary-fixed": "#d9e3f8",
+                        "background": "#f9f9fe",
+                        "surface-dim": "#d7dae4",
+                        "inverse-on-surface": "#9c9da1",
+                        "error": "#a83836",
+                        "inverse-primary": "#acc8f8",
+                        "secondary-dim": "#4a5365",
+                        "outline": "#777b84",
+                        "on-tertiary": "#fdf7ff",
+                        "inverse-surface": "#0c0e12",
+                        "on-error": "#fff7f6",
+                        "on-secondary-fixed": "#364051",
+                        "secondary": "#565f72",
+                        "surface-container-highest": "#dfe2ec",
+                        "tertiary": "#655882",
+                        "surface-container": "#ecedf6",
+                        "on-tertiary-fixed": "#392e55",
+                        "surface-tint": "#44608a",
+                        "on-surface": "#2f333a",
+                        "on-secondary-fixed-variant": "#525c6e",
+                        "on-secondary-container": "#485264",
+                        "error-dim": "#67040d",
+                        "primary-fixed-dim": "#9ebae9",
+                        "primary": "#44608a",
+                        "on-secondary": "#f8f8ff",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-fixed": "#dacafb",
+                        "primary-container": "#acc8f8",
+                        "on-tertiary-container": "#4d4169",
+                        "on-error-container": "#6e0a12",
+                        "primary-dim": "#38547d",
+                        "tertiary-dim": "#594c76",
+                        "on-primary": "#f8f8ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "display": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface min-h-screen pb-24">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface border-b border-outline-variant shadow-sm">
+<div class="flex justify-between items-center px-4 py-3 w-full max-w-md mx-auto">
+<div class="flex items-center gap-3">
+<img alt="Founder Profile" class="w-8 h-8 rounded-full object-cover border border-outline-variant" data-alt="A professional headshot of a young, confident entrepreneur with a warm smile, set against a blurred modern office background. The lighting is soft and natural, emphasizing a clean and trustworthy professional image. The overall aesthetic is bright and high-key, aligning with a premium light-mode startup interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDAgmgg7jIa8pVdshCb3TorP9Y7JJVVX5SEP9Xf2WjVPxE4tZYW-KCiWWRAlQXZvMgmJSItLP7EG3t2nNcgFMCH8-ZtU6ZgwpJLOYz3Np6IeP4tPWenIPmbMx4E5fgXyuWT-K1WpouLZOxX6lzws_nTU_ebnR4YUG1qgl1-i15ekabVYHm6bpS5Pa9kT2_IOUNNs_PsQrXDUnwCy6McGCJeG9XwVytbcHJM_B1AebdhmcOOlWVzK7aQKv4ZH_IfzKqIso2aMsT8LKoC"/>
+<h1 class="font-headline text-lg font-semibold text-primary">Founder Hub</h1>
+</div>
+<button class="w-10 h-10 flex items-center justify-center rounded-full active:scale-95 transition-transform hover:bg-surface-container">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="notifications">notifications</span>
+</button>
+</div>
+</header>
+<main class="pt-20 px-4 w-full max-w-md mx-auto space-y-8">
+<!-- Metrics Section (Horizontal Scrolling) -->
+<section>
+<div class="flex overflow-x-auto gap-4 no-scrollbar pb-2">
+<div class="flex-shrink-0 w-40 p-4 bg-surface-container-lowest rounded-xl shadow-sm border border-surface-variant">
+<p class="text-xs font-medium text-on-surface-variant mb-1">Total Funding</p>
+<p class="text-xl font-bold text-primary">$1.2M</p>
+<div class="mt-2 text-[10px] text-green-600 font-semibold flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">trending_up</span> +12%
+                    </div>
+</div>
+<div class="flex-shrink-0 w-40 p-4 bg-surface-container-lowest rounded-xl shadow-sm border border-surface-variant">
+<p class="text-xs font-medium text-on-surface-variant mb-1">Active Proposals</p>
+<p class="text-xl font-bold text-primary">8</p>
+<div class="mt-2 text-[10px] text-on-surface-variant font-medium">3 Pending review</div>
+</div>
+<div class="flex-shrink-0 w-40 p-4 bg-surface-container-lowest rounded-xl shadow-sm border border-surface-variant">
+<p class="text-xs font-medium text-on-surface-variant mb-1">Next Milestone</p>
+<p class="text-xl font-bold text-primary">14d</p>
+<div class="mt-2 text-[10px] text-tertiary font-medium">Series A Pitch</div>
+</div>
+</div>
+</section>
+<!-- Quick Actions -->
+<section class="grid grid-cols-2 gap-3">
+<button class="flex items-center justify-center gap-2 bg-primary text-on-primary py-3 px-4 rounded-xl font-semibold shadow-md active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-lg">add_circle</span>
+<span class="text-sm">Submit Proposal</span>
+</button>
+<button class="flex items-center justify-center gap-2 bg-surface-container-lowest border border-outline text-on-surface py-3 px-4 rounded-xl font-semibold shadow-sm active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-lg">account_balance_wallet</span>
+<span class="text-sm">View Wallet</span>
+</button>
+</section>
+<!-- Proposal Milestones -->
+<section class="space-y-4">
+<div class="flex justify-between items-end">
+<h2 class="text-sm font-bold uppercase tracking-wider text-on-surface-variant">Proposal Milestones</h2>
+<button class="text-xs font-semibold text-primary">See All</button>
+</div>
+<div class="space-y-3">
+<!-- Card 1 -->
+<div class="p-4 bg-surface-container-lowest rounded-xl border border-surface-variant shadow-sm">
+<div class="flex justify-between items-start mb-3">
+<div>
+<h3 class="font-bold text-on-surface">Eco-Tech Expansion</h3>
+<p class="text-xs text-on-surface-variant">Seed Round Phase II</p>
+</div>
+<span class="px-2 py-1 bg-secondary-container text-on-secondary-container text-[10px] font-bold rounded-full">65% Done</span>
+</div>
+<div class="w-full bg-surface-container-high h-2 rounded-full overflow-hidden mb-3">
+<div class="bg-primary h-full w-[65%]"></div>
+</div>
+<div class="flex justify-between items-center text-[11px]">
+<span class="text-on-surface-variant italic">Next: Technical Audit</span>
+<span class="font-bold text-error">Oct 24, 2023</span>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="p-4 bg-surface-container-lowest rounded-xl border border-surface-variant shadow-sm">
+<div class="flex justify-between items-start mb-3">
+<div>
+<h3 class="font-bold text-on-surface">FinStream SaaS</h3>
+<p class="text-xs text-on-surface-variant">Bridge Funding</p>
+</div>
+<span class="px-2 py-1 bg-tertiary-container text-on-tertiary-container text-[10px] font-bold rounded-full">20% Done</span>
+</div>
+<div class="w-full bg-surface-container-high h-2 rounded-full overflow-hidden mb-3">
+<div class="bg-tertiary h-full w-[20%]"></div>
+</div>
+<div class="flex justify-between items-center text-[11px]">
+<span class="text-on-surface-variant italic">Next: Deck Review</span>
+<span class="font-bold text-on-surface">Nov 02, 2023</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Investor Requests -->
+<section class="space-y-4">
+<h2 class="text-sm font-bold uppercase tracking-wider text-on-surface-variant">Investor Requests</h2>
+<div class="bg-surface-container-lowest rounded-2xl border border-surface-variant divide-y divide-surface-variant shadow-sm">
+<!-- Request 1 -->
+<div class="p-4">
+<div class="flex items-center gap-3 mb-4">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold">
+                            SK
+                        </div>
+<div>
+<h4 class="text-sm font-bold text-on-surface">Sarah Koppel</h4>
+<p class="text-xs text-on-surface-variant">Blue Chip Ventures</p>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 py-2 bg-green-100 text-green-800 text-xs font-bold rounded-lg active:scale-95 transition-transform">Accept</button>
+<button class="flex-1 py-2 bg-red-100 text-red-800 text-xs font-bold rounded-lg active:scale-95 transition-transform">Reject</button>
+</div>
+</div>
+<!-- Request 2 -->
+<div class="p-4">
+<div class="flex items-center gap-3 mb-4">
+<div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container font-bold">
+                            MJ
+                        </div>
+<div>
+<h4 class="text-sm font-bold text-on-surface">Marcus Jensen</h4>
+<p class="text-xs text-on-surface-variant">Apex Angel Group</p>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 py-2 bg-green-100 text-green-800 text-xs font-bold rounded-lg active:scale-95 transition-transform">Accept</button>
+<button class="flex-1 py-2 bg-red-100 text-red-800 text-xs font-bold rounded-lg active:scale-95 transition-transform">Reject</button>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 bg-surface border-t border-outline-variant shadow-lg rounded-t-xl">
+<div class="flex justify-around items-center h-16 w-full max-w-md mx-auto px-2">
+<!-- Home (Active) -->
+<a class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-full px-4 py-1 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="font-label text-[10px] font-medium">Home</span>
+</a>
+<!-- Wallet -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="account_balance_wallet">account_balance_wallet</span>
+<span class="font-label text-[10px] font-medium">Wallet</span>
+</a>
+<!-- Proposals -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="description">description</span>
+<span class="font-label text-[10px] font-medium">Proposals</span>
+</a>
+<!-- Settings -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label text-[10px] font-medium">Settings</span>
+</a>
+</div>
+</nav>
+</body></html>

@@ -1,0 +1,1 @@
+Desktop/web redesign based on the existing mobile style: simple, sleek, trustworthy, professional fintech aesthetic. Use structured desktop grids, sticky top nav, clear KPI cards, data tables/cards, subtle borders and depth, high readability, restrained colors, and strong visual hierarchy.

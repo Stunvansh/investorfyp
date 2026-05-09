@@ -1,0 +1,1 @@
+Simple, sleek, professional startup-investment platform. Clean spacing, subtle shadows, neutral surfaces, accessible contrast, restrained gradients, and practical dashboard cards. Avoid overly futuristic or flashy UI. Prioritize readability and trust signals.
