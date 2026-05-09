@@ -123,11 +123,19 @@ info "Installing nginx snippet..."
 mkdir -p /etc/nginx/snippets
 cp "$DEPLOY_DIR/scripts/nginx-investorfyp.conf" "$NGINX_SNIPPET"
 
-# Find existing server block and add include if not already there
-NGINX_CONF="/etc/nginx/sites-available/default"
+# Auto-detect the active nginx server block config (could be tracefake, default, etc.)
+NGINX_CONF=$(grep -rl "listen 80" /etc/nginx/sites-enabled/ 2>/dev/null | head -1)
+if [ -z "$NGINX_CONF" ]; then
+    NGINX_CONF=$(grep -rl "listen 80" /etc/nginx/conf.d/ 2>/dev/null | head -1)
+fi
+if [ -z "$NGINX_CONF" ]; then
+    NGINX_CONF="/etc/nginx/sites-available/default"
+fi
+info "Using nginx config: $NGINX_CONF"
+
 if ! grep -q "investorfyp" "$NGINX_CONF" 2>/dev/null; then
-    info "Adding include to nginx default config..."
-    # Insert our include just before the closing } of the server block
+    info "Adding include to nginx config..."
+    # Insert our include just before the last closing } of the server block
     sed -i '/^}/i\    include snippets\/investorfyp.conf;' "$NGINX_CONF"
     info "Added: include snippets/investorfyp.conf to $NGINX_CONF"
 else
