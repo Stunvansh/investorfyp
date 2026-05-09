@@ -39,12 +39,13 @@ info "Installing system packages..."
 apt-get update -q
 apt-get install -y -q python3 python3-pip python3-venv nodejs npm nginx git curl
 
-# node LTS via nodesource if node < 18
-NODE_VER=$(node -v 2>/dev/null | grep -oP '\d+' | head -1 || echo "0")
-if [ "$NODE_VER" -lt 18 ]; then
-    info "Upgrading Node.js to LTS..."
-    curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
+# node LTS via nodesource if node < 20 (Vite requires 20.19+ or 22.12+)
+NODE_VER=$(node -v 2>/dev/null | grep -oP '(?<=v)\d+' | head -1 || echo "0")
+if [ "$NODE_VER" -lt 20 ]; then
+    info "Upgrading Node.js to LTS 20 (current: v${NODE_VER})..."
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
     apt-get install -y -q nodejs
+    info "Node.js now: $(node -v)"
 fi
 
 # ── 2. Clone / update repo ────────────────────────────────────────────────────
