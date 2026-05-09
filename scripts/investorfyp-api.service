@@ -1,0 +1,22 @@
+[Unit]
+Description=InvestorFYP Django API (gunicorn on port 8765)
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/investorfyp/backend
+EnvironmentFile=/var/www/investorfyp/backend/.env
+ExecStart=/var/www/investorfyp/.venv/bin/gunicorn \
+    --workers 3 \
+    --bind 127.0.0.1:8765 \
+    --access-logfile /var/log/investorfyp/gunicorn-access.log \
+    --error-logfile  /var/log/investorfyp/gunicorn-error.log \
+    --timeout 60 \
+    config.wsgi:application
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
