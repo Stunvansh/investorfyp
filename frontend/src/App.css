@@ -731,20 +731,20 @@ label {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding: 3rem 1.5rem;
+  padding: 2.5rem 1.5rem;
   min-height: calc(100vh - 64px);
 }
 
 .auth-card {
-  padding: 2.2rem 2.4rem;
+  padding: 2.5rem 3rem;
   display: grid;
-  gap: 1.1rem;
+  gap: 1.2rem;
   background: var(--surface);
   border: 1px solid var(--outline-soft);
   border-radius: 20px;
   box-shadow: var(--shadow-md, 0 8px 32px rgba(0,0,0,0.08));
   width: 100%;
-  max-width: 480px;
+  max-width: 600px;
 }
 
 .auth-card__header,
