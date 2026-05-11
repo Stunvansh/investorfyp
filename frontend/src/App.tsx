@@ -941,20 +941,6 @@ function App() {
 
           {page === 'auth' && !user && (
             <section className="auth-page">
-              <article className="auth-story">
-                <span className="landing-eyebrow">Professional Venture Infrastructure</span>
-                <h2>Access the secure capital network built for founders and investors.</h2>
-                <p>
-                  Operate on a calm, institutional interface designed around transparent approvals, escrow control,
-                  proposal workflows, and trusted communication.
-                </p>
-                <div className="auth-story__points">
-                  <div><BadgeCheck size={18} /> Real-time asset and escrow tracking</div>
-                  <div><MessageSquare size={18} /> Proposal-centric founder-investor messaging</div>
-                  <div><ShieldCheck size={18} /> Admin-governed verification and release flows</div>
-                </div>
-              </article>
-
               <article className="auth-card">
                 <div className="auth-card__header">
                   <h2>{authMode === 'signup' ? 'Create Account' : 'Sign In'}</h2>
