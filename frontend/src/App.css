@@ -744,7 +744,7 @@ label {
   border-radius: 20px;
   box-shadow: var(--shadow-md, 0 8px 32px rgba(0,0,0,0.08));
   width: 100%;
-  max-width: 600px;
+  max-width: 680px;
 }
 
 .auth-card__header,
