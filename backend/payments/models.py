@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.db.models.deletion import ProtectedError
 
 from marketplace.models import Proposal
 
@@ -12,8 +13,8 @@ class PaymentAttempt(models.Model):
 		FAILED = "failed", "Failed"
 		CANCELED = "canceled", "Canceled"
 
-	investor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="payment_attempts")
-	proposal = models.ForeignKey(Proposal, on_delete=models.CASCADE, related_name="payment_attempts")
+	investor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="payment_attempts")
+	proposal = models.ForeignKey(Proposal, on_delete=models.PROTECT, related_name="payment_attempts")
 	amount = models.DecimalField(max_digits=12, decimal_places=2)
 	intent_id = models.CharField(max_length=120, unique=True)
 	client_secret = models.CharField(max_length=255, blank=True)
@@ -25,6 +26,9 @@ class PaymentAttempt(models.Model):
 
 	class Meta:
 		ordering = ["-created_at"]
+
+	def delete(self, *args, **kwargs):
+		raise ProtectedError("Payment attempts are payment audit records and cannot be deleted.", {self})
 
 
 class ProcessedStripeEvent(models.Model):

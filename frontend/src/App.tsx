@@ -26,6 +26,7 @@ import {
   SendHorizontal,
   Settings,
   ShieldCheck,
+  Trash2,
   TrendingUp,
   Users,
   Wallet,
@@ -36,10 +37,14 @@ import {
   approveProposal,
   checkHealth,
   clearToken,
+  createAgreement,
   createPaymentIntent,
   createProposal,
   createSignal,
   createTransaction,
+  deleteProposal,
+  deleteUser,
+  downloadProtectedFile,
   getChatRooms,
   getEscrowSummary,
   getMe,
@@ -54,9 +59,11 @@ import {
   login,
   markMessageAsRead,
   patchMe,
+  patchVerification,
   patchProposal,
   patchUserFlags,
   register,
+  reviewUserVerification,
   saveToken,
   sendMessage,
   updateProposalMilestone,
@@ -111,6 +118,39 @@ function compactText(value: string | null | undefined) {
     .trim()
 }
 
+function formatDateTime(value: string | null | undefined) {
+  if (!value) return 'N/A'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'N/A'
+  return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(date)
+}
+
+function formatRelativeTime(value: string | null | undefined) {
+  if (!value) return 'N/A'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'N/A'
+  const diffMs = date.getTime() - Date.now()
+  const absMs = Math.abs(diffMs)
+  const divisions: Array<[Intl.RelativeTimeFormatUnit, number]> = [
+    ['year', 1000 * 60 * 60 * 24 * 365],
+    ['month', 1000 * 60 * 60 * 24 * 30],
+    ['day', 1000 * 60 * 60 * 24],
+    ['hour', 1000 * 60 * 60],
+    ['minute', 1000 * 60],
+  ]
+  const formatter = new Intl.RelativeTimeFormat('en', { numeric: 'auto' })
+  for (const [unit, amount] of divisions) {
+    if (absMs >= amount || unit === 'minute') {
+      return formatter.format(Math.round(diffMs / amount), unit)
+    }
+  }
+  return 'just now'
+}
+
+function verificationStatus(user: User) {
+  return user.verification?.status ?? (user.verified ? 'approved' : 'draft')
+}
+
 function App() {
   const [apiStatus, setApiStatus] = useState<'checking' | 'online' | 'offline'>('checking')
   const [page, setPage] = useState<Page>('landing')
@@ -161,12 +201,35 @@ function App() {
     timeline: '3 months',
     document_name: '',
     pitch_video_url: '',
+    startup_website_url: '',
+    proof_video_url: '',
   })
+  const [proposalDocumentFile, setProposalDocumentFile] = useState<File | null>(null)
+
+  const [verificationForm, setVerificationForm] = useState({
+    phone_number: '',
+    address: '',
+    identity_type: 'cnic' as 'cnic' | 'passport',
+    identity_number: '',
+    startup_website_url: '',
+    proof_video_url: '',
+    linkedin_url: '',
+    twitter_url: '',
+    facebook_url: '',
+    instagram_url: '',
+  })
+  const [verificationFiles, setVerificationFiles] = useState<Record<string, File | null>>({})
 
   const [walletForm, setWalletForm] = useState({
     method: 'virtual-escrow' as 'virtual-escrow' | 'stripe',
     proposal: 0,
     amount: 1000,
+    equity_percentage: '',
+    profit_share_percentage: '',
+    expected_return_note: 'Returns depend on startup performance, agreed milestones, and admin escrow settlement.',
+    term_months: 12,
+    accepted_name: '',
+    accept_terms: false,
   })
 
   const [pendingIntentId, setPendingIntentId] = useState('')
@@ -298,6 +361,22 @@ function App() {
     return fullName || user.email.split('@')[0]
   }, [user])
 
+  function hydrateVerificationForm(verification: User['verification']) {
+    if (!verification) return
+    setVerificationForm({
+      phone_number: verification.phone_number || '',
+      address: verification.address || '',
+      identity_type: verification.identity_type || 'cnic',
+      identity_number: verification.identity_number || '',
+      startup_website_url: verification.startup_website_url || '',
+      proof_video_url: verification.proof_video_url || '',
+      linkedin_url: verification.linkedin_url || '',
+      twitter_url: verification.twitter_url || '',
+      facebook_url: verification.facebook_url || '',
+      instagram_url: verification.instagram_url || '',
+    })
+  }
+
   async function refreshAll(activeUser: User) {
     try {
       const [p, s, t, c, unread, escrow] = await Promise.all([
@@ -337,14 +416,12 @@ function App() {
 
   useEffect(() => {
     const existingToken = localStorage.getItem('ventureledger_access_token')
-    if (!existingToken) {
-      setUser(null)
-      return
-    }
+    if (!existingToken) return
 
     getMe()
       .then((me) => {
         setUser(me)
+        hydrateVerificationForm(me.verification)
         setPage(me.role === 'admin' ? 'admin' : 'dashboard')
         refreshAll(me)
       })
@@ -366,6 +443,7 @@ function App() {
       saveToken(token.access)
       const me = await getMe()
       setUser(me)
+      hydrateVerificationForm(me.verification)
       setPage(me.role === 'admin' ? 'admin' : 'dashboard')
       await refreshAll(me)
       setStatusText('Authentication successful.')
@@ -467,10 +545,38 @@ function App() {
     }
   }
 
+  async function onSubmitVerification(event: FormEvent) {
+    event.preventDefault()
+    if (!user || user.role !== 'entrepreneur') return
+
+    const data = new FormData()
+    Object.entries(verificationForm).forEach(([key, value]) => data.append(key, String(value ?? '')))
+    Object.entries(verificationFiles).forEach(([key, file]) => {
+      if (file) data.append(key, file)
+    })
+    data.append('submit', 'true')
+
+    try {
+      const verification = await patchVerification(data)
+      setUser({ ...user, verification, verified: verification.status === 'approved' })
+      setStatusText('Verification submitted to admin for review.')
+    } catch (error) {
+      console.error(error)
+      setStatusText('Failed to submit verification details.')
+    }
+  }
+
   async function onSubmitProposal(event: FormEvent) {
     event.preventDefault()
     try {
-      await createProposal({ ...proposalForm, required_funding: String(proposalForm.required_funding) })
+      if (proposalDocumentFile) {
+        const data = new FormData()
+        Object.entries({ ...proposalForm, required_funding: String(proposalForm.required_funding) }).forEach(([key, value]) => data.append(key, String(value ?? '')))
+        data.append('document_file', proposalDocumentFile)
+        await createProposal(data)
+      } else {
+        await createProposal({ ...proposalForm, required_funding: String(proposalForm.required_funding) })
+      }
       if (user) await refreshAll(user)
       setStatusText('Proposal submitted for admin approval.')
     } catch {
@@ -504,7 +610,21 @@ function App() {
       setStatusText('Please select a proposal first.')
       return
     }
+    if (!walletForm.accept_terms || !compactText(walletForm.accepted_name)) {
+      setStatusText('Please accept the investment agreement and type your legal name first.')
+      return
+    }
     try {
+      await createAgreement({
+        proposal: walletForm.proposal,
+        amount: walletForm.amount,
+        payment_method: walletForm.method,
+        equity_percentage: walletForm.equity_percentage || undefined,
+        profit_share_percentage: walletForm.profit_share_percentage || undefined,
+        expected_return_note: walletForm.expected_return_note,
+        term_months: walletForm.term_months,
+        accepted_name: walletForm.accepted_name,
+      })
       if (walletForm.method === 'stripe') {
         const intent = await createPaymentIntent({ proposal: walletForm.proposal, amount: walletForm.amount })
         setPendingIntentId(intent.intent_id)
@@ -518,7 +638,7 @@ function App() {
           notes: 'Investor escrow funding',
         })
         if (user) await refreshAll(user)
-        setStatusText('Funds held in escrow successfully.')
+        setStatusText('Agreement accepted and funds held in escrow successfully.')
       }
     } catch {
       setStatusText('Investment request failed.')
@@ -591,6 +711,29 @@ function App() {
     }
   }
 
+  async function onReviewVerification(target: User, decision: 'approved' | 'rejected') {
+    const fallback = decision === 'approved' ? 'Verification approved.' : 'Please upload clearer identity/startup proof.'
+    const adminMessage = window.prompt(`Admin message for ${decision}:`, fallback) ?? fallback
+    try {
+      await reviewUserVerification(target.id, { status: decision, admin_message: adminMessage })
+      if (user) await refreshAll(user)
+      setStatusText(`Verification ${decision}.`)
+    } catch {
+      setStatusText('Failed to review verification.')
+    }
+  }
+
+  async function onDeleteUser(target: User) {
+    if (!window.confirm(`Delete ${target.email} permanently? This cannot be undone.`)) return
+    try {
+      await deleteUser(target.id)
+      if (user) await refreshAll(user)
+      setStatusText('User deleted.')
+    } catch {
+      setStatusText('Failed to delete user. Check linked records or permissions.')
+    }
+  }
+
   async function onAdminApproveProposal(proposalId: number) {
     try {
       await approveProposal(proposalId)
@@ -606,6 +749,38 @@ function App() {
       if (user) await refreshAll(user)
     } catch {
       setStatusText('Unable to mark proposal pending.')
+    }
+  }
+
+  async function onAdminRejectProposal(proposalId: number) {
+    const message = window.prompt('Why is this proposal rejected?', 'Please provide more proof or clearer financial details.') || 'Rejected by admin.'
+    try {
+      await patchProposal(proposalId, { status: 'rejected', admin_message: message })
+      if (user) await refreshAll(user)
+      setStatusText('Proposal rejected with admin message.')
+    } catch {
+      setStatusText('Unable to reject proposal.')
+    }
+  }
+
+  async function onDeleteProposal(proposalId: number) {
+    if (!window.confirm('Delete this proposal? Proposals with investment activity cannot be deleted.')) return
+    try {
+      await deleteProposal(proposalId)
+      setSelectedProposalId(null)
+      if (user) await refreshAll(user)
+      setStatusText('Proposal deleted.')
+    } catch {
+      setStatusText('Unable to delete proposal. It may already have investment/payment activity.')
+    }
+  }
+
+  async function onDownloadFile(url: string | undefined, filename: string) {
+    if (!url) return
+    try {
+      await downloadProtectedFile(url, filename)
+    } catch {
+      setStatusText('Unable to download protected file. Please refresh and try again.')
     }
   }
 
@@ -1081,6 +1256,53 @@ function App() {
                     <button type="submit" className="button-primary">Save Profile</button>
                   </form>
                 </article>
+
+                {user.role === 'entrepreneur' && (
+                  <article className="panel panel--form panel--span-2">
+                    <div className="panel-head">
+                      <div>
+                        <h3>Founder verification evidence</h3>
+                        <p>Submit CNIC/passport proof, address, social links, and startup proof for admin review.</p>
+                      </div>
+                      <span className={`status-pill ${statusTone(verificationStatus(user))}`}>{verificationStatus(user)}</span>
+                    </div>
+                    {user.verification?.admin_message && (
+                      <div className="status-banner">Admin message: {user.verification.admin_message}</div>
+                    )}
+                    <form onSubmit={onSubmitVerification} className="form-grid">
+                      <div className="field-row field-row--two">
+                        <input placeholder="Phone number" value={verificationForm.phone_number} onChange={(e) => setVerificationForm({ ...verificationForm, phone_number: e.target.value })} required />
+                        <select value={verificationForm.identity_type} onChange={(e) => setVerificationForm({ ...verificationForm, identity_type: e.target.value as 'cnic' | 'passport' })}>
+                          <option value="cnic">CNIC / National ID</option>
+                          <option value="passport">Passport</option>
+                        </select>
+                      </div>
+                      <input placeholder="CNIC / Passport number" value={verificationForm.identity_number} onChange={(e) => setVerificationForm({ ...verificationForm, identity_number: e.target.value })} required />
+                      <textarea placeholder="Full address" value={verificationForm.address} onChange={(e) => setVerificationForm({ ...verificationForm, address: e.target.value })} required />
+                      <div className="field-row field-row--two">
+                        <input placeholder="Startup website URL" value={verificationForm.startup_website_url} onChange={(e) => setVerificationForm({ ...verificationForm, startup_website_url: e.target.value })} />
+                        <input placeholder="Working system / demo video URL" value={verificationForm.proof_video_url} onChange={(e) => setVerificationForm({ ...verificationForm, proof_video_url: e.target.value })} />
+                      </div>
+                      <div className="field-row field-row--two">
+                        <input placeholder="LinkedIn URL" value={verificationForm.linkedin_url} onChange={(e) => setVerificationForm({ ...verificationForm, linkedin_url: e.target.value })} />
+                        <input placeholder="Twitter/X URL" value={verificationForm.twitter_url} onChange={(e) => setVerificationForm({ ...verificationForm, twitter_url: e.target.value })} />
+                      </div>
+                      <div className="field-row field-row--two">
+                        <input placeholder="Facebook URL" value={verificationForm.facebook_url} onChange={(e) => setVerificationForm({ ...verificationForm, facebook_url: e.target.value })} />
+                        <input placeholder="Instagram URL" value={verificationForm.instagram_url} onChange={(e) => setVerificationForm({ ...verificationForm, instagram_url: e.target.value })} />
+                      </div>
+                      <div className="field-row field-row--two">
+                        <label>CNIC front / identity front<input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => setVerificationFiles({ ...verificationFiles, identity_front: e.target.files?.[0] ?? null })} /></label>
+                        <label>CNIC back / identity back<input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => setVerificationFiles({ ...verificationFiles, identity_back: e.target.files?.[0] ?? null })} /></label>
+                      </div>
+                      <div className="field-row field-row--two">
+                        <label>Passport photo<input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => setVerificationFiles({ ...verificationFiles, passport_photo: e.target.files?.[0] ?? null })} /></label>
+                        <label>Proof video upload<input type="file" accept=".mp4,.mov,.webm" onChange={(e) => setVerificationFiles({ ...verificationFiles, proof_video_file: e.target.files?.[0] ?? null })} /></label>
+                      </div>
+                      <button type="submit" className="button-primary">Submit Verification for Admin Review</button>
+                    </form>
+                  </article>
+                )}
               </div>
             </section>
           )}
@@ -1107,7 +1329,7 @@ function App() {
                   <div className="metric-card__icon metric-card__icon--primary"><DollarSign size={18} /></div>
                   <span>Total Funding Raised</span>
                   <strong>{formatMoney(totalFundingRaised)}</strong>
-                  <small><TrendingUp size={14} /> +12%</small>
+                  <small><TrendingUp size={14} /> Live proposal targets</small>
                 </article>
                 <article className="metric-card">
                   <div className="metric-card__icon metric-card__icon--secondary"><FileText size={18} /></div>
@@ -1147,7 +1369,7 @@ function App() {
                     </div>
                     <div className="table-shell__body">
                       {visibleProposals.length === 0 && <div className="empty-state">No proposals match the current search.</div>}
-                      {visibleProposals.map((proposal, index) => (
+                      {visibleProposals.map((proposal) => (
                         <div className="table-row table-row--milestones" key={proposal.id}>
                           <div className="proposal-name-cell">
                             <div className="table-icon"><Rocket size={16} /></div>
@@ -1168,7 +1390,7 @@ function App() {
                             </select>
                           </div>
                           <div>
-                            <strong>{index === 0 ? '2h ago' : index === 1 ? 'Yesterday' : '3 days ago'}</strong>
+                            <strong>{formatRelativeTime(proposal.updated_at || proposal.created_at)}</strong>
                           </div>
                         </div>
                       ))}
@@ -1241,7 +1463,7 @@ function App() {
                 <article className="metric-card metric-card--wallet">
                   <span>Available Capital</span>
                   <strong>{investorCapital}</strong>
-                  <small><TrendingUp size={14} /> +2.4% from last month</small>
+                  <small><TrendingUp size={14} /> Live wallet balance</small>
                 </article>
                 <article className="metric-card metric-card--wallet">
                   <span>In Escrow</span>
@@ -1251,7 +1473,7 @@ function App() {
                 <article className="metric-card metric-card--wallet">
                   <span>Transaction Count</span>
                   <strong>{transactions.length}</strong>
-                  <small><Clock3 size={14} /> Fiscal year 2026</small>
+                  <small><Clock3 size={14} /> Updated from ledger</small>
                 </article>
               </div>
 
@@ -1371,6 +1593,11 @@ function App() {
                       <input placeholder="Documents filename" value={proposalForm.document_name} onChange={(e) => setProposalForm({ ...proposalForm, document_name: e.target.value })} required />
                     </div>
                     <input placeholder="Pitch video URL" value={proposalForm.pitch_video_url} onChange={(e) => setProposalForm({ ...proposalForm, pitch_video_url: e.target.value })} />
+                    <div className="field-row field-row--two">
+                      <input placeholder="Startup website URL" value={proposalForm.startup_website_url} onChange={(e) => setProposalForm({ ...proposalForm, startup_website_url: e.target.value })} />
+                      <input placeholder="Working system proof video URL" value={proposalForm.proof_video_url} onChange={(e) => setProposalForm({ ...proposalForm, proof_video_url: e.target.value })} />
+                    </div>
+                    <label>Upload pitch deck / proof document<input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png" onChange={(e) => setProposalDocumentFile(e.target.files?.[0] ?? null)} /></label>
                     <button type="submit" className="button-primary">Submit Proposal</button>
                   </form>
                 </article>
@@ -1400,7 +1627,19 @@ function App() {
                         <li>Funding target: {formatMoney(selectedProposal.required_funding)}</li>
                         <li>Timeline: {selectedProposal.timeline || 'N/A'}</li>
                         <li>Status: {selectedProposal.status}</li>
+                        {selectedProposal.admin_message && <li>Admin message: {selectedProposal.admin_message}</li>}
+                        {selectedProposal.startup_website_url && <li><a href={selectedProposal.startup_website_url} target="_blank" rel="noreferrer">Startup website</a></li>}
+                        {selectedProposal.pitch_video_url && <li><a href={selectedProposal.pitch_video_url} target="_blank" rel="noreferrer">Pitch video</a></li>}
+                        {selectedProposal.proof_video_url && <li><a href={selectedProposal.proof_video_url} target="_blank" rel="noreferrer">Working system proof</a></li>}
+                        {selectedProposal.document_file && (
+                          <li><button type="button" className="text-button" onClick={() => onDownloadFile(selectedProposal.document_file, selectedProposal.document_name || 'proposal-document')}>Download uploaded document</button></li>
+                        )}
                       </ul>
+                      <div className="detail-actions">
+                        <button type="button" className="button-secondary button-secondary--danger" onClick={() => onDeleteProposal(selectedProposal.id)}>
+                          <Trash2 size={16} /> Delete Proposal
+                        </button>
+                      </div>
                     </div>
                   )}
                 </aside>
@@ -1481,6 +1720,13 @@ function App() {
                         <div><span>Status</span><strong>{selectedProposal.status}</strong></div>
                         <div><span>Funding target</span><strong>{formatMoney(selectedProposal.required_funding)}</strong></div>
                         <div><span>Timeline</span><strong>{selectedProposal.timeline || 'N/A'}</strong></div>
+                        <div><span>Last updated</span><strong>{formatRelativeTime(selectedProposal.updated_at || selectedProposal.created_at)}</strong></div>
+                        <div><span>Document</span><strong>{selectedProposal.document_file ? <button type="button" className="text-button" onClick={() => onDownloadFile(selectedProposal.document_file, selectedProposal.document_name || 'proposal-document')}>Download file</button> : selectedProposal.document_name || 'N/A'}</strong></div>
+                      </div>
+                      <div className="detail-card__links">
+                        {selectedProposal.startup_website_url && <a href={selectedProposal.startup_website_url} target="_blank" rel="noreferrer">Startup website</a>}
+                        {selectedProposal.pitch_video_url && <a href={selectedProposal.pitch_video_url} target="_blank" rel="noreferrer">Pitch video</a>}
+                        {selectedProposal.proof_video_url && <a href={selectedProposal.proof_video_url} target="_blank" rel="noreferrer">Working system proof video</a>}
                       </div>
                       <div className="detail-actions detail-actions--column">
                         <button type="button" className="button-primary" onClick={() => onSendInterest(selectedProposal.id)}>Send Interest</button>
@@ -1511,7 +1757,7 @@ function App() {
                 <article className="metric-card metric-card--wallet">
                   <span>Available Capital</span>
                   <strong>{user.role === 'investor' ? investorCapital : formatMoney(totalFundingRaised)}</strong>
-                  <small><TrendingUp size={14} /> +2.4% from last month</small>
+                  <small><TrendingUp size={14} /> Live balance</small>
                 </article>
                 <article className="metric-card metric-card--wallet">
                   <span>In Escrow</span>
@@ -1521,7 +1767,7 @@ function App() {
                 <article className="metric-card metric-card--wallet">
                   <span>Transaction Count</span>
                   <strong>{transactions.length}</strong>
-                  <small><Clock3 size={14} /> Fiscal year 2026</small>
+                  <small><Clock3 size={14} /> Live ledger count</small>
                 </article>
               </div>
 
@@ -1560,8 +1806,22 @@ function App() {
                       <div>
                         <label>Funding Amount</label>
                         <input type="number" value={walletForm.amount} onChange={(e) => setWalletForm({ ...walletForm, amount: Number(e.target.value) })} />
-                        <p className="field-hint">Minimum contribution: {formatMoney(5000)}</p>
+                        <p className="field-hint">Backend validates remaining funding, available balance, and accepted agreement.</p>
                       </div>
+
+                      <div className="field-row field-row--two">
+                        <input placeholder="Equity % (optional)" value={walletForm.equity_percentage} onChange={(e) => setWalletForm({ ...walletForm, equity_percentage: e.target.value })} />
+                        <input placeholder="Profit share % (optional)" value={walletForm.profit_share_percentage} onChange={(e) => setWalletForm({ ...walletForm, profit_share_percentage: e.target.value })} />
+                      </div>
+                      <div className="field-row field-row--two">
+                        <input type="number" placeholder="Term months" value={walletForm.term_months} onChange={(e) => setWalletForm({ ...walletForm, term_months: Number(e.target.value) })} />
+                        <input placeholder="Type legal name to accept" value={walletForm.accepted_name} onChange={(e) => setWalletForm({ ...walletForm, accepted_name: e.target.value })} />
+                      </div>
+                      <textarea placeholder="Expected return / profit note" value={walletForm.expected_return_note} onChange={(e) => setWalletForm({ ...walletForm, expected_return_note: e.target.value })} />
+                      <label className="checkbox-line">
+                        <input type="checkbox" checked={walletForm.accept_terms} onChange={(e) => setWalletForm({ ...walletForm, accept_terms: e.target.checked })} />
+                        I accept the VentureLedger investment agreement snapshot for this proposal and understand returns are not guaranteed.
+                      </label>
 
                       <button type="submit" className="button-primary button-primary--full">
                         <Wallet size={16} /> {walletForm.method === 'stripe' ? 'Create Stripe Intent' : 'Fund Escrow'}
@@ -1795,6 +2055,14 @@ function App() {
                               <div>
                                 <strong>{entry.first_name || entry.last_name ? `${entry.first_name || ''} ${entry.last_name || ''}`.trim() : entry.email.split('@')[0]}</strong>
                                 <p>{entry.email}</p>
+                                <p>KYC: {verificationStatus(entry)} {entry.verification?.phone_number ? `· ${entry.verification.phone_number}` : ''}</p>
+                                {entry.verification?.admin_message && <p>Admin note: {entry.verification.admin_message}</p>}
+                                <div className="inline-links">
+                                  {entry.verification?.identity_front && <button type="button" className="text-button" onClick={() => onDownloadFile(entry.verification?.identity_front, `${entry.email}-id-front`)}>ID front</button>}
+                                  {entry.verification?.identity_back && <button type="button" className="text-button" onClick={() => onDownloadFile(entry.verification?.identity_back, `${entry.email}-id-back`)}>ID back</button>}
+                                  {entry.verification?.passport_photo && <button type="button" className="text-button" onClick={() => onDownloadFile(entry.verification?.passport_photo, `${entry.email}-passport`)}>Passport</button>}
+                                  {entry.verification?.proof_video_url && <a href={entry.verification.proof_video_url} target="_blank" rel="noreferrer">Proof video</a>}
+                                </div>
                               </div>
                             </div>
                             <span className="status-pill tone-neutral">{entry.role}</span>
@@ -1802,7 +2070,7 @@ function App() {
                               <span className={`status-dot ${entry.verified ? 'status-dot--success' : 'status-dot--warning'}`} />
                               <span>{entry.frozen ? 'Frozen' : entry.verified ? 'Verified' : 'Unverified'}</span>
                             </div>
-                            <span>2026</span>
+                            <span>{formatDateTime(entry.date_joined)}</span>
                             <div className="row-actions">
                               <button type="button" className="button-secondary button-secondary--small" onClick={() => onToggleUserFlag(entry, 'verified')}>
                                 {entry.verified ? 'Unverify' : 'Verify'}
@@ -1810,6 +2078,9 @@ function App() {
                               <button type="button" className="button-secondary button-secondary--small button-secondary--danger" onClick={() => onToggleUserFlag(entry, 'frozen')}>
                                 {entry.frozen ? 'Unfreeze' : 'Freeze'}
                               </button>
+                              <button type="button" className="button-secondary button-secondary--small" onClick={() => onReviewVerification(entry, 'approved')}>Approve KYC</button>
+                              <button type="button" className="button-secondary button-secondary--small button-secondary--danger" onClick={() => onReviewVerification(entry, 'rejected')}>Reject KYC</button>
+                              <button type="button" className="button-secondary button-secondary--small button-secondary--danger" onClick={() => onDeleteUser(entry)}><Trash2 size={14} /> Delete</button>
                             </div>
                           </div>
                         ))}
@@ -1826,13 +2097,13 @@ function App() {
                       <div className="metric-card__icon metric-card__icon--primary"><Clock3 size={18} /></div>
                       <span>Pending Proposals</span>
                       <strong>{pendingProposals.length}</strong>
-                      <small>+12% this week</small>
+                      <small>Live moderation queue</small>
                     </article>
                     <article className="metric-card">
                       <div className="metric-card__icon metric-card__icon--tertiary"><TrendingUp size={18} /></div>
                       <span>Approval Rate</span>
                       <strong>{proposals.length ? `${Math.round((approvedProposals.length / proposals.length) * 100)}%` : '0%'}</strong>
-                      <small>Target: 85%</small>
+                      <small>{approvedProposals.length} approved</small>
                     </article>
                     <article className="metric-card">
                       <div className="metric-card__icon metric-card__icon--secondary"><Wallet size={18} /></div>
@@ -1879,7 +2150,9 @@ function App() {
                             <span className={`status-pill ${statusTone(proposal.status)}`}>{proposal.status}</span>
                             <div className="row-actions">
                               <button type="button" className="button-primary button-primary--small" onClick={() => onAdminApproveProposal(proposal.id)}>Approve</button>
-                              <button type="button" className="button-secondary button-secondary--small button-secondary--danger" onClick={() => onAdminSetPending(proposal.id)}>Pending</button>
+                              <button type="button" className="button-secondary button-secondary--small" onClick={() => onAdminSetPending(proposal.id)}>Pending</button>
+                              <button type="button" className="button-secondary button-secondary--small button-secondary--danger" onClick={() => onAdminRejectProposal(proposal.id)}>Reject</button>
+                              <button type="button" className="button-secondary button-secondary--small button-secondary--danger" onClick={() => onDeleteProposal(proposal.id)}><Trash2 size={14} /> Delete</button>
                             </div>
                           </div>
                         ))}
@@ -1896,7 +2169,7 @@ function App() {
                       <div className="metric-card__icon metric-card__icon--primary"><Wallet size={18} /></div>
                       <span>Total Held in Escrow</span>
                       <strong>{formatMoney(escrowSummary?.total_escrow)}</strong>
-                      <small>+2.4%</small>
+                      <small>Live escrow ledger</small>
                     </article>
                     <article className="metric-card">
                       <div className="metric-card__icon metric-card__icon--danger"><AlertTriangle size={18} /></div>
@@ -1946,7 +2219,7 @@ function App() {
                               </div>
                               <span>{formatMoney(transaction.amount)}</span>
                               <span className={`status-pill ${actionTone(transaction.action)}`}>{transaction.action}</span>
-                              <span>2026</span>
+                              <span>{formatDateTime(transaction.created_at)}</span>
                               <div className="row-actions">
                                 <button type="button" className="button-primary button-primary--small" onClick={() => onAdminSettlement(transaction.proposal, 'release')}>Release</button>
                                 <button type="button" className="button-secondary button-secondary--small button-secondary--danger" onClick={() => onAdminSettlement(transaction.proposal, 'refund')}>Refund</button>

@@ -1,6 +1,7 @@
 from decimal import Decimal
 import os
 
+from django.http import FileResponse
 from django.db.models import Q, Sum
 from rest_framework import permissions, status
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -10,8 +11,9 @@ from rest_framework.views import APIView
 from accounts.models import User
 from common.responses import list_envelope
 from messaging.models import ChatRoom
-from .models import InvestorSignal, Proposal, WalletTransaction
+from .models import InvestmentAgreement, InvestorSignal, Proposal, WalletTransaction
 from .serializers import (
+	InvestmentAgreementSerializer,
 	InvestorSignalSerializer,
 	MilestoneUpdateSerializer,
 	ProposalSerializer,
@@ -31,6 +33,35 @@ def _remaining_funding(proposal: Proposal) -> Decimal:
 		or Decimal("0")
 	)
 	return Decimal(proposal.required_funding) - invested
+
+
+def _client_ip(request) -> str | None:
+	forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
+	if forwarded:
+		return forwarded.split(",")[0].strip()
+	return request.META.get("REMOTE_ADDR")
+
+
+def _agreement_terms_snapshot(proposal: Proposal, data: dict) -> str:
+	return (
+		f"Investor accepted VentureLedger funding terms for proposal '{proposal.title}'. "
+		f"Amount: {data.get('amount')}. Payment method: {data.get('payment_method')}. "
+		f"Equity percentage: {data.get('equity_percentage') or 'N/A'}. "
+		f"Profit share percentage: {data.get('profit_share_percentage') or 'N/A'}. "
+		f"Term months: {data.get('term_months') or 'N/A'}. "
+		f"Expected return note: {data.get('expected_return_note') or 'No guaranteed return; returns depend on startup performance and agreed milestones.'}"
+	)
+
+
+def _has_accepted_agreement(proposal: Proposal, investor: User, amount: Decimal, method: str) -> bool:
+	return InvestmentAgreement.objects.filter(
+		proposal=proposal,
+		investor=investor,
+		amount=amount,
+		payment_method=method,
+		accepted=True,
+		status=InvestmentAgreement.AgreementStatus.ACCEPTED,
+	).exists()
 
 
 class ProposalListCreateView(APIView):
@@ -53,17 +84,17 @@ class ProposalListCreateView(APIView):
 		if max_budget:
 			queryset = queryset.filter(required_funding__lte=max_budget)
 
-		serializer = ProposalSerializer(queryset, many=True)
+		serializer = ProposalSerializer(queryset, many=True, context={"request": request})
 		return list_envelope(serializer.data, count=queryset.count())
 
 	def post(self, request):
 		if request.user.role != User.Roles.ENTREPRENEUR:
 			raise PermissionDenied("Only entrepreneurs can create proposals.")
 
-		serializer = ProposalSerializer(data=request.data)
+		serializer = ProposalSerializer(data=request.data, context={"request": request})
 		serializer.is_valid(raise_exception=True)
 		proposal = serializer.save(entrepreneur=request.user, status=Proposal.Status.PENDING)
-		return Response(ProposalSerializer(proposal).data, status=status.HTTP_201_CREATED)
+		return Response(ProposalSerializer(proposal, context={"request": request}).data, status=status.HTTP_201_CREATED)
 
 
 class ProposalDetailView(APIView):
@@ -77,17 +108,57 @@ class ProposalDetailView(APIView):
 
 	def get(self, request, pk):
 		proposal = self.get_object(pk)
-		return Response(ProposalSerializer(proposal).data)
+		if request.user.role == User.Roles.INVESTOR and proposal.status != Proposal.Status.APPROVED:
+			raise PermissionDenied("Investors can view approved proposals only.")
+		if request.user.role == User.Roles.ENTREPRENEUR and proposal.entrepreneur_id != request.user.id:
+			raise PermissionDenied("Not allowed to view this proposal.")
+		return Response(ProposalSerializer(proposal, context={"request": request}).data)
 
 	def patch(self, request, pk):
 		proposal = self.get_object(pk)
 		if request.user.role != User.Roles.ADMIN and proposal.entrepreneur_id != request.user.id:
 			raise PermissionDenied("Not allowed to update this proposal.")
 
-		serializer = ProposalSerializer(proposal, data=request.data, partial=True)
+		data = request.data.copy()
+		if request.user.role != User.Roles.ADMIN:
+			data.pop("status", None)
+			data.pop("admin_message", None)
+
+		serializer = ProposalSerializer(proposal, data=data, partial=True, context={"request": request})
 		serializer.is_valid(raise_exception=True)
 		serializer.save()
 		return Response(serializer.data)
+
+	def delete(self, request, pk):
+		proposal = self.get_object(pk)
+		if request.user.role != User.Roles.ADMIN and proposal.entrepreneur_id != request.user.id:
+			raise PermissionDenied("Not allowed to delete this proposal.")
+		if proposal.transactions.exists() or proposal.payment_attempts.exists() or proposal.agreements.exists():
+			raise ValidationError("Proposal cannot be deleted after investment, payment, or agreement activity exists.")
+		proposal.delete()
+		return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ProposalDocumentDownloadView(APIView):
+	permission_classes = [permissions.IsAuthenticated]
+
+	def get(self, request, pk):
+		try:
+			proposal = Proposal.objects.get(pk=pk)
+		except Proposal.DoesNotExist as exc:
+			raise ValidationError("Proposal not found") from exc
+
+		allowed = request.user.role == User.Roles.ADMIN or proposal.entrepreneur_id == request.user.id or (
+			request.user.role == User.Roles.INVESTOR and proposal.status == Proposal.Status.APPROVED
+		)
+		if not allowed:
+			raise PermissionDenied("Not allowed to download this proposal document.")
+		if not proposal.document_file:
+			return Response({"detail": "Document not found."}, status=404)
+
+		response = FileResponse(proposal.document_file.open("rb"), as_attachment=True, filename=proposal.document_file.name.rsplit("/", 1)[-1])
+		response["X-Content-Type-Options"] = "nosniff"
+		return response
 
 
 class ProposalApproveView(APIView):
@@ -98,8 +169,9 @@ class ProposalApproveView(APIView):
 			raise PermissionDenied("Only admin can approve proposals.")
 		proposal = Proposal.objects.get(pk=pk)
 		proposal.status = Proposal.Status.APPROVED
-		proposal.save(update_fields=["status", "updated_at"])
-		return Response(ProposalSerializer(proposal).data)
+		proposal.admin_message = ""
+		proposal.save(update_fields=["status", "admin_message", "updated_at"])
+		return Response(ProposalSerializer(proposal, context={"request": request}).data)
 
 
 class ProposalSetMilestoneView(APIView):
@@ -114,7 +186,43 @@ class ProposalSetMilestoneView(APIView):
 		serializer.is_valid(raise_exception=True)
 		proposal.milestone = serializer.validated_data["milestone"]
 		proposal.save(update_fields=["milestone", "updated_at"])
-		return Response(ProposalSerializer(proposal).data)
+		return Response(ProposalSerializer(proposal, context={"request": request}).data)
+
+
+class InvestmentAgreementListCreateView(APIView):
+	permission_classes = [permissions.IsAuthenticated]
+
+	def get(self, request):
+		queryset = InvestmentAgreement.objects.select_related("proposal", "investor", "entrepreneur")
+		if request.user.role == User.Roles.INVESTOR:
+			queryset = queryset.filter(investor=request.user)
+		elif request.user.role == User.Roles.ENTREPRENEUR:
+			queryset = queryset.filter(entrepreneur=request.user)
+		elif request.user.role != User.Roles.ADMIN:
+			queryset = queryset.none()
+		serializer = InvestmentAgreementSerializer(queryset, many=True)
+		return list_envelope(serializer.data, count=queryset.count())
+
+	def post(self, request):
+		if request.user.role != User.Roles.INVESTOR:
+			raise PermissionDenied("Only investors can accept investment agreements.")
+
+		serializer = InvestmentAgreementSerializer(data=request.data)
+		serializer.is_valid(raise_exception=True)
+		proposal = Proposal.objects.get(pk=serializer.validated_data["proposal"].id)
+		if proposal.status != Proposal.Status.APPROVED:
+			raise ValidationError("Agreement can be accepted for approved proposals only.")
+
+		agreement = serializer.save(
+			investor=request.user,
+			entrepreneur=proposal.entrepreneur,
+			terms_snapshot=_agreement_terms_snapshot(proposal, serializer.validated_data),
+			accepted=True,
+			ip_address=_client_ip(request),
+			user_agent=request.META.get("HTTP_USER_AGENT", ""),
+			status=InvestmentAgreement.AgreementStatus.ACCEPTED,
+		)
+		return Response(InvestmentAgreementSerializer(agreement).data, status=status.HTTP_201_CREATED)
 
 
 class SignalListCreateView(APIView):
@@ -213,6 +321,8 @@ class TransactionListCreateView(APIView):
 				raise PermissionDenied("Only investors can invest.")
 			if proposal.status != Proposal.Status.APPROVED:
 				raise ValidationError("Investments allowed only for approved proposals.")
+			if not _has_accepted_agreement(proposal, user, amount, method):
+				raise ValidationError("Accepted investment agreement is required before funding escrow.")
 
 			remaining = _remaining_funding(proposal)
 			if amount > remaining:

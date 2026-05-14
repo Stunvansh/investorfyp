@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import User
-from marketplace.models import Proposal, WalletTransaction
+from marketplace.models import InvestmentAgreement, Proposal, WalletTransaction
 from .models import PaymentAttempt, ProcessedStripeEvent
 from .serializers import CreateIntentSerializer, PaymentAttemptSerializer
 
@@ -49,15 +49,23 @@ def _sync_successful_payment(attempt: PaymentAttempt):
 	)
 
 
+def _has_accepted_stripe_agreement(proposal: Proposal, investor: User, amount) -> bool:
+	return InvestmentAgreement.objects.filter(
+		proposal=proposal,
+		investor=investor,
+		amount=amount,
+		payment_method=WalletTransaction.Method.STRIPE,
+		accepted=True,
+		status=InvestmentAgreement.AgreementStatus.ACCEPTED,
+	).exists()
+
+
 class CreatePaymentIntentView(APIView):
 	permission_classes = [permissions.IsAuthenticated]
 
 	def post(self, request):
 		if request.user.role != User.Roles.INVESTOR:
 			raise PermissionDenied("Only investors can create payment intents.")
-
-		if not stripe.api_key:
-			return Response({"detail": "Stripe is not configured."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 		serializer = CreateIntentSerializer(data=request.data)
 		serializer.is_valid(raise_exception=True)
@@ -67,6 +75,12 @@ class CreatePaymentIntentView(APIView):
 			raise ValidationError("Only approved proposals can be funded.")
 
 		amount = serializer.validated_data["amount"]
+		if not _has_accepted_stripe_agreement(proposal, request.user, amount):
+			raise ValidationError("Accepted investment agreement is required before creating a Stripe intent.")
+
+		if not stripe.api_key:
+			return Response({"detail": "Stripe is not configured."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
 		intent = stripe.PaymentIntent.create(
 			amount=int(float(amount) * 100),
 			currency="usd",

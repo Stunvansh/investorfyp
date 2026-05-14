@@ -20,6 +20,31 @@ api.interceptors.request.use((config) => {
 
 export type Role = 'entrepreneur' | 'investor' | 'admin'
 
+export type EntrepreneurVerification = {
+  id: number
+  user: number
+  phone_number?: string
+  address?: string
+  identity_type?: 'cnic' | 'passport'
+  identity_number?: string
+  identity_front?: string
+  identity_back?: string
+  passport_photo?: string
+  startup_website_url?: string
+  proof_video_url?: string
+  proof_video_file?: string
+  linkedin_url?: string
+  twitter_url?: string
+  facebook_url?: string
+  instagram_url?: string
+  status: 'draft' | 'submitted' | 'approved' | 'rejected'
+  admin_message?: string
+  submitted_at?: string | null
+  reviewed_at?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
 export type User = {
   id: number
   email: string
@@ -33,6 +58,8 @@ export type User = {
   startup_documents?: string
   investment_interest?: string
   budget_range?: string
+  date_joined?: string
+  verification?: EntrepreneurVerification | null
 }
 
 export type Proposal = {
@@ -46,9 +73,15 @@ export type Proposal = {
   required_funding: string
   timeline: string
   document_name: string
+  document_file?: string
   pitch_video_url: string
-  status: 'pending' | 'approved'
+  startup_website_url?: string
+  proof_video_url?: string
+  admin_message?: string
+  status: 'pending' | 'approved' | 'rejected'
   milestone: 'Not Started' | 'In Progress' | 'Completed'
+  created_at?: string
+  updated_at?: string
 }
 
 export type Signal = {
@@ -71,6 +104,24 @@ export type Tx = {
   amount: string
   notes?: string
   created_at: string
+}
+
+export type InvestmentAgreement = {
+  id: number
+  proposal: number
+  investor: number
+  entrepreneur: number
+  amount: string
+  payment_method: Tx['method']
+  equity_percentage?: string | null
+  profit_share_percentage?: string | null
+  expected_return_note?: string
+  term_months?: number | null
+  terms_snapshot: string
+  accepted: boolean
+  accepted_name: string
+  accepted_at: string
+  status: 'accepted' | 'cancelled'
 }
 
 export type ChatRoom = {
@@ -143,12 +194,36 @@ export async function patchUserFlags(userId: number, payload: { verified?: boole
   return res.data as User
 }
 
+export async function patchVerification(payload: FormData | Record<string, unknown>) {
+  const res = await api.patch('/auth/verification/', payload)
+  return res.data as EntrepreneurVerification
+}
+
+export async function reviewUserVerification(userId: number, payload: { status: 'approved' | 'rejected'; admin_message?: string }) {
+  const res = await api.patch(`/auth/users/${userId}/verification/`, payload)
+  return res.data as EntrepreneurVerification
+}
+
+export async function deleteUser(userId: number) {
+  await api.delete(`/auth/users/${userId}/`)
+}
+
+export async function downloadProtectedFile(url: string, filename: string) {
+  const res = await api.get(url, { responseType: 'blob' })
+  const objectUrl = URL.createObjectURL(res.data)
+  const a = document.createElement('a')
+  a.href = objectUrl
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(objectUrl)
+}
+
 export async function getProposals(params?: { category?: string; max_budget?: number }) {
   const res = await api.get('/proposals/', { params })
   return parseListEnvelope<Proposal>(res.data).data
 }
 
-export async function createProposal(payload: Partial<Proposal>) {
+export async function createProposal(payload: Partial<Proposal> | FormData) {
   const res = await api.post('/proposals/', payload)
   return res.data as Proposal
 }
@@ -161,6 +236,24 @@ export async function approveProposal(id: number) {
 export async function patchProposal(id: number, payload: Partial<Proposal>) {
   const res = await api.patch(`/proposals/${id}/`, payload)
   return res.data as Proposal
+}
+
+export async function deleteProposal(id: number) {
+  await api.delete(`/proposals/${id}/`)
+}
+
+export async function createAgreement(payload: {
+  proposal: number
+  amount: number
+  payment_method: Tx['method']
+  equity_percentage?: string
+  profit_share_percentage?: string
+  expected_return_note?: string
+  term_months?: number
+  accepted_name: string
+}) {
+  const res = await api.post('/agreements/', payload)
+  return res.data as InvestmentAgreement
 }
 
 export async function updateProposalMilestone(id: number, milestone: Proposal['milestone']) {
