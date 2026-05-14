@@ -166,6 +166,14 @@ function App() {
   const [showKycModal, setShowKycModal] = useState(false)
   const [kycSubmitting, setKycSubmitting] = useState(false)
   const [selectedEntrepreneurId, setSelectedEntrepreneurId] = useState<number | null>(null)
+  const [showKycApprovedBanner, setShowKycApprovedBanner] = useState(true)
+  const [proposalSubmitting, setProposalSubmitting] = useState(false)
+
+  const [showKycDetailModal, setShowKycDetailModal] = useState(false)
+  const [kycDetailTarget, setKycDetailTarget] = useState<User | null>(null)
+  const [showRejectionModal, setShowRejectionModal] = useState(false)
+  const [rejectionMessage, setRejectionMessage] = useState('')
+  const [kycRejectionTarget, setKycRejectionTarget] = useState<User | null>(null)
 
   const [user, setUser] = useState<User | null>(null)
   const [users, setUsers] = useState<User[]>([])
@@ -326,12 +334,17 @@ function App() {
   }, [users, adminUserFilter, normalizedQuery])
 
   const filteredAdminProposals = useMemo(() => {
-    const byStatus =
-      adminProposalFilter === 'pending'
+    const filter = adminProposalFilter as string
+    let byStatus =
+      filter === 'pending'
         ? proposals.filter((proposal) => proposal.status === 'pending')
-        : adminProposalFilter === 'approved'
+        : filter === 'approved'
           ? proposals.filter((proposal) => proposal.status === 'approved')
-          : proposals
+          : filter === 'kyc-verified'
+            ? proposals.filter((proposal) => { const owner = users.find(u => u.id === proposal.entrepreneur); return owner?.verification?.status === 'approved' || owner?.verified === true })
+            : filter === 'kyc-unverified'
+              ? proposals.filter((proposal) => { const owner = users.find(u => u.id === proposal.entrepreneur); return owner?.verification?.status !== 'approved' && !owner?.verified })
+              : proposals
 
     if (!normalizedQuery) return byStatus
     return byStatus.filter((proposal) =>
@@ -339,7 +352,7 @@ function App() {
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(normalizedQuery)),
     )
-  }, [proposals, adminProposalFilter, normalizedQuery])
+  }, [proposals, users, adminProposalFilter, normalizedQuery])
 
   const filteredEscrowTransactions = useMemo(() => {
     if (!normalizedQuery) return transactions
@@ -622,6 +635,8 @@ function App() {
 
   async function onSubmitProposal(event: FormEvent) {
     event.preventDefault()
+    if (proposalSubmitting) return
+    setProposalSubmitting(true)
     try {
       if (proposalDocumentFile) {
         const data = new FormData()
@@ -632,19 +647,26 @@ function App() {
         await createProposal({ ...proposalForm, required_funding: String(proposalForm.required_funding) })
       }
       if (user) await refreshAll(user)
-      setStatusText('Proposal submitted for admin approval.')
+      setStatusText('✅ Proposal submitted for admin approval.')
     } catch {
       setStatusText('Failed to submit proposal.')
+    } finally {
+      setProposalSubmitting(false)
     }
   }
 
   async function onSendInterest(proposalId: number) {
+    const proposal = proposals.find((p) => p.id === proposalId)
+    if (proposal && proposal.status !== 'approved') {
+      setStatusText('Interest can only be sent on approved proposals. This proposal is still under review.')
+      return
+    }
     try {
       await createSignal({ proposal: proposalId, signal_type: 'interest', message: 'Interested in discussing this opportunity.' })
       if (user) await refreshAll(user)
-      setStatusText('Interest signal sent.')
+      setStatusText('✅ Interest signal sent successfully.')
     } catch {
-      setStatusText('Could not send interest signal.')
+      setStatusText('Could not send interest signal. It may already exist or the proposal is not active.')
     }
   }
 
@@ -766,14 +788,33 @@ function App() {
   }
 
   async function onReviewVerification(target: User, decision: 'approved' | 'rejected') {
-    const fallback = decision === 'approved' ? 'Verification approved.' : 'Please upload clearer identity/startup proof.'
-    const adminMessage = window.prompt(`Admin message for ${decision}:`, fallback) ?? fallback
+    if (decision === 'rejected') {
+      setKycRejectionTarget(target)
+      setRejectionMessage('Please upload clearer identity/startup proof and resubmit.')
+      setShowRejectionModal(true)
+      return
+    }
     try {
-      await reviewUserVerification(target.id, { status: decision, admin_message: adminMessage })
+      await reviewUserVerification(target.id, { status: decision, admin_message: 'Your KYC has been approved. You can now submit proposals and access all platform features.' })
       if (user) await refreshAll(user)
-      setStatusText(`Verification ${decision}.`)
+      setStatusText(`✅ KYC approved for ${target.email}.`)
     } catch {
       setStatusText('Failed to review verification.')
+    }
+  }
+
+  async function onConfirmRejection() {
+    if (!kycRejectionTarget) return
+    try {
+      await reviewUserVerification(kycRejectionTarget.id, { status: 'rejected', admin_message: rejectionMessage })
+      if (user) await refreshAll(user)
+      setStatusText(`KYC rejected for ${kycRejectionTarget.email}. Message sent.`)
+    } catch {
+      setStatusText('Failed to reject verification.')
+    } finally {
+      setShowRejectionModal(false)
+      setKycRejectionTarget(null)
+      setRejectionMessage('')
     }
   }
 
@@ -1650,7 +1691,7 @@ function App() {
                     </div>
                     <div className="field-row field-row--two">
                       <input placeholder="Timeline" value={proposalForm.timeline} onChange={(e) => setProposalForm({ ...proposalForm, timeline: e.target.value })} />
-                      <input placeholder="Documents filename" value={proposalForm.document_name} onChange={(e) => setProposalForm({ ...proposalForm, document_name: e.target.value })} required />
+                      <input placeholder="Document name (e.g. Business Plan)" value={proposalForm.document_name} onChange={(e) => setProposalForm({ ...proposalForm, document_name: e.target.value })} />
                     </div>
                     <input placeholder="Pitch video URL" value={proposalForm.pitch_video_url} onChange={(e) => setProposalForm({ ...proposalForm, pitch_video_url: e.target.value })} />
                     <div className="field-row field-row--two">
@@ -1658,7 +1699,9 @@ function App() {
                       <input placeholder="Working system proof video URL" value={proposalForm.proof_video_url} onChange={(e) => setProposalForm({ ...proposalForm, proof_video_url: e.target.value })} />
                     </div>
                     <label>Upload pitch deck / proof document<input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png" onChange={(e) => setProposalDocumentFile(e.target.files?.[0] ?? null)} /></label>
-                    <button type="submit" className="button-primary">Submit Proposal</button>
+                    <button type="submit" className="button-primary" disabled={proposalSubmitting}>
+                      {proposalSubmitting ? 'Submitting…' : 'Submit Proposal'}
+                    </button>
                   </form>
                 </article>
 
@@ -2161,6 +2204,7 @@ function App() {
                             </div>
                             <span>{formatDateTime(entry.date_joined)}</span>
                             <div className="row-actions">
+                              <button type="button" className="button-secondary button-secondary--small" onClick={() => { setKycDetailTarget(entry); setShowKycDetailModal(true) }}>View KYC</button>
                               <button type="button" className="button-secondary button-secondary--small" onClick={() => onToggleUserFlag(entry, 'verified')}>
                                 {entry.verified ? 'Unverify' : 'Verify'}
                               </button>
@@ -2212,6 +2256,8 @@ function App() {
                           <button type="button" className={adminProposalFilter === 'all' ? 'active' : ''} onClick={() => setAdminProposalFilter('all')}>All</button>
                           <button type="button" className={adminProposalFilter === 'pending' ? 'active' : ''} onClick={() => setAdminProposalFilter('pending')}>Pending</button>
                           <button type="button" className={adminProposalFilter === 'approved' ? 'active' : ''} onClick={() => setAdminProposalFilter('approved')}>Approved</button>
+                          <button type="button" className={(adminProposalFilter as string) === 'kyc-verified' ? 'active' : ''} onClick={() => setAdminProposalFilter('kyc-verified' as 'approved')}>KYC Verified</button>
+                          <button type="button" className={(adminProposalFilter as string) === 'kyc-unverified' ? 'active' : ''} onClick={() => setAdminProposalFilter('kyc-unverified' as 'approved')}>Non-KYC</button>
                         </span>
                       </div>
                     </div>
@@ -2232,6 +2278,9 @@ function App() {
                               <div>
                                 <strong>{proposal.title}</strong>
                                 <p>{proposal.startup_details || proposal.category}</p>
+                                <p className={`kyc-badge ${(() => { const owner = users.find(u => u.id === proposal.entrepreneur); const st = owner?.verification?.status; return st === 'approved' ? 'kyc-badge--ok' : st === 'rejected' ? 'kyc-badge--bad' : 'kyc-badge--pending' })()}`}>
+                                  KYC: {(() => { const owner = users.find(u => u.id === proposal.entrepreneur); return owner?.verification?.status ?? (owner?.verified ? 'approved' : 'not submitted') })()}
+                                </p>
                               </div>
                             </div>
                             <span>{formatMoney(proposal.required_funding)}</span>
@@ -2352,6 +2401,104 @@ function App() {
           )}
         </main>
       </div>
+
+      {/* ── GLOBAL KYC REJECTION ALERT ── */}
+      {user && user.role === 'entrepreneur' && user.verification?.status === 'rejected' && (
+        <div className="kyc-rejection-banner">
+          <AlertTriangle size={18} />
+          <div>
+            <strong>KYC Rejected:</strong>{' '}
+            {user.verification.admin_message || 'Your KYC was rejected. Please update your details and resubmit.'}
+          </div>
+          <button type="button" className="button-secondary button-secondary--small" onClick={() => setPage('profile')}>
+            Update KYC
+          </button>
+        </div>
+      )}
+
+      {/* ── GLOBAL KYC APPROVED NOTIFICATION ── */}
+      {user && user.role === 'entrepreneur' && user.verification?.status === 'approved' && showKycApprovedBanner && page !== 'landing' && page !== 'auth' && (
+        <div className="kyc-approved-banner">
+          <BadgeCheck size={18} />
+          <div><strong>KYC Approved!</strong> Your identity is verified. You can now submit proposals and use all platform features.</div>
+          <button type="button" className="banner-dismiss" onClick={() => setShowKycApprovedBanner(false)}>✕</button>
+        </div>
+      )}
+
+      {/* ── ADMIN KYC DETAIL MODAL ── */}
+      {showKycDetailModal && kycDetailTarget && (
+        <div className="kyc-modal-overlay" onClick={() => setShowKycDetailModal(false)}>
+          <div className="kyc-modal kyc-modal--detail" onClick={(e) => e.stopPropagation()}>
+            <div className="kyc-modal__header">
+              <div className="kyc-modal__icon"><ShieldCheck size={24} /></div>
+              <h2>KYC Details — {kycDetailTarget.first_name} {kycDetailTarget.last_name}</h2>
+              <p>{kycDetailTarget.email}</p>
+            </div>
+            <div className="kyc-detail-grid">
+              <div><span>Status</span><strong className={`status-pill ${statusTone(verificationStatus(kycDetailTarget))}`}>{verificationStatus(kycDetailTarget)}</strong></div>
+              <div><span>Phone</span><strong>{kycDetailTarget.verification?.phone_number || 'N/A'}</strong></div>
+              <div><span>Identity Type</span><strong>{kycDetailTarget.verification?.identity_type || 'N/A'}</strong></div>
+              <div><span>Identity Number</span><strong>{kycDetailTarget.verification?.identity_number || 'N/A'}</strong></div>
+              <div className="kyc-detail-full"><span>Address</span><strong>{kycDetailTarget.verification?.address || 'N/A'}</strong></div>
+              <div><span>Startup Website</span><strong>{kycDetailTarget.verification?.startup_website_url ? <a href={kycDetailTarget.verification.startup_website_url} target="_blank" rel="noreferrer">{kycDetailTarget.verification.startup_website_url}</a> : 'N/A'}</strong></div>
+              <div><span>Proof Video URL</span><strong>{kycDetailTarget.verification?.proof_video_url ? <a href={kycDetailTarget.verification.proof_video_url} target="_blank" rel="noreferrer">Watch Video</a> : 'N/A'}</strong></div>
+              <div><span>LinkedIn</span><strong>{kycDetailTarget.verification?.linkedin_url ? <a href={kycDetailTarget.verification.linkedin_url} target="_blank" rel="noreferrer">LinkedIn ↗</a> : 'N/A'}</strong></div>
+              <div><span>Twitter/X</span><strong>{kycDetailTarget.verification?.twitter_url ? <a href={kycDetailTarget.verification.twitter_url} target="_blank" rel="noreferrer">Twitter ↗</a> : 'N/A'}</strong></div>
+              <div><span>Facebook</span><strong>{kycDetailTarget.verification?.facebook_url ? <a href={kycDetailTarget.verification.facebook_url} target="_blank" rel="noreferrer">Facebook ↗</a> : 'N/A'}</strong></div>
+              <div><span>Instagram</span><strong>{kycDetailTarget.verification?.instagram_url ? <a href={kycDetailTarget.verification.instagram_url} target="_blank" rel="noreferrer">Instagram ↗</a> : 'N/A'}</strong></div>
+              {kycDetailTarget.verification?.identity_front && (
+                <div><span>ID Front</span><strong><button type="button" className="text-button" onClick={() => onDownloadFile(kycDetailTarget.verification!.identity_front!, 'id-front')}>Download</button></strong></div>
+              )}
+              {kycDetailTarget.verification?.identity_back && (
+                <div><span>ID Back</span><strong><button type="button" className="text-button" onClick={() => onDownloadFile(kycDetailTarget.verification!.identity_back!, 'id-back')}>Download</button></strong></div>
+              )}
+              {kycDetailTarget.verification?.passport_photo && (
+                <div><span>Passport Photo</span><strong><button type="button" className="text-button" onClick={() => onDownloadFile(kycDetailTarget.verification!.passport_photo!, 'passport')}>Download</button></strong></div>
+              )}
+              {kycDetailTarget.verification?.proof_video_file && (
+                <div><span>Proof Video File</span><strong><button type="button" className="text-button" onClick={() => onDownloadFile(kycDetailTarget.verification!.proof_video_file!, 'proof-video')}>Download</button></strong></div>
+              )}
+              {kycDetailTarget.verification?.admin_message && (
+                <div className="kyc-detail-full"><span>Last Admin Message</span><strong>{kycDetailTarget.verification.admin_message}</strong></div>
+              )}
+            </div>
+            <div className="kyc-detail-actions">
+              <button type="button" className="button-primary" onClick={() => { setShowKycDetailModal(false); onReviewVerification(kycDetailTarget, 'approved') }}>✅ Approve KYC</button>
+              <button type="button" className="button-secondary button-secondary--danger" onClick={() => { setShowKycDetailModal(false); onReviewVerification(kycDetailTarget, 'rejected') }}>❌ Reject KYC</button>
+              <button type="button" className="button-secondary" onClick={() => setShowKycDetailModal(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── ADMIN REJECTION MESSAGE MODAL ── */}
+      {showRejectionModal && kycRejectionTarget && (
+        <div className="kyc-modal-overlay" onClick={() => setShowRejectionModal(false)}>
+          <div className="kyc-modal kyc-modal--reject" onClick={(e) => e.stopPropagation()}>
+            <div className="kyc-modal__header">
+              <div className="kyc-modal__icon" style={{background: 'var(--danger-soft, #fee2e2)'}}><XCircle size={24} color="var(--danger, #dc2626)" /></div>
+              <h2>Reject KYC — {kycRejectionTarget.first_name} {kycRejectionTarget.last_name}</h2>
+              <p>Write a message to the entrepreneur explaining why their KYC was rejected.</p>
+            </div>
+            <div className="field-group">
+              <label>Rejection Message (will be shown to entrepreneur)</label>
+              <textarea
+                rows={4}
+                value={rejectionMessage}
+                onChange={(e) => setRejectionMessage(e.target.value)}
+                placeholder="e.g. Please upload clearer photos of your CNIC. The images were blurry and unreadable."
+                style={{width: '100%', marginTop: '0.5rem'}}
+              />
+            </div>
+            <div className="kyc-detail-actions" style={{marginTop: '1rem'}}>
+              <button type="button" className="button-secondary button-secondary--danger" onClick={onConfirmRejection} disabled={!rejectionMessage.trim()}>
+                Confirm Rejection &amp; Send Message
+              </button>
+              <button type="button" className="button-secondary" onClick={() => { setShowRejectionModal(false); setKycRejectionTarget(null) }}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* KYC MANDATORY ONBOARDING MODAL — shown after signup, cannot be dismissed */}
       {showKycModal && user && (
