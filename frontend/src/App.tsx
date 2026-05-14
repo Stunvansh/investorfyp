@@ -233,6 +233,7 @@ function App() {
   })
 
   const [pendingIntentId, setPendingIntentId] = useState('')
+  const [navOpen, setNavOpen] = useState(false)
 
   const investorRequests = useMemo(() => {
     if (!user || user.role !== 'entrepreneur') return []
@@ -800,7 +801,8 @@ function App() {
   const transactionVolume = transactions.reduce((sum, transaction) => sum + Number(transaction.amount ?? 0), 0)
 
   return (
-    <div className={`app-shell ${isAuthed ? 'app-shell--authed' : 'app-shell--public'} ${user ? `role-${user.role}` : ''}`}>
+    <div className={`app-shell ${isAuthed ? 'app-shell--authed' : 'app-shell--public'} ${user ? `role-${user.role}` : ''} ${navOpen ? 'nav-open' : ''}`}>
+      {user && <div className={`nav-overlay${navOpen ? ' nav-overlay--active' : ''}`} onClick={() => setNavOpen(false)} />}
       {user && (
         <aside className={`side-nav ${isAdmin ? 'side-nav--admin' : 'side-nav--workspace'}`}>
           <div className="side-nav__brand">
@@ -900,6 +902,11 @@ function App() {
           {isAuthed ? (
             <>
               <div className="topbar__left">
+                <button type="button" className="hamburger" aria-label="Toggle navigation" onClick={() => setNavOpen((prev) => !prev)}>
+                  <span />
+                  <span />
+                  <span />
+                </button>
                 <div className="topbar__product">{isAdmin ? 'VentureLedger' : user?.role === 'entrepreneur' ? 'FinVent' : 'InvestWise'}</div>
                 <label className="search-shell" aria-label="Search workspace">
                   <Search size={16} />
