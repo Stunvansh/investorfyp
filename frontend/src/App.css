@@ -1566,6 +1566,41 @@ label {
   min-height: 60px;
 }
 
+/* KYC section grouping */
+.kyc-modal__section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-top: 0.15rem;
+}
+
+.kyc-modal__section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted, #9ca3af);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--border, #e8eaf0);
+  padding-bottom: 0.4rem;
+}
+
+.kyc-modal__section-title .optional {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-muted, #b0b7c3);
+}
+
+.kyc-modal__file-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted, #9ca3af);
+  line-height: 1.4;
+  margin-top: 0.1rem;
+}
+
 .kyc-modal__note {
   display: flex;
   align-items: flex-start;

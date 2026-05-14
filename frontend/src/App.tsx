@@ -29,6 +29,7 @@ import {
   Trash2,
   TrendingUp,
   Users,
+  Video,
   Wallet,
   XCircle,
 } from 'lucide-react'
@@ -2363,6 +2364,8 @@ function App() {
             </div>
 
             <form onSubmit={onSubmitKycModal} className="kyc-modal__form">
+
+              {/* ── Required identity fields ── */}
               <div className="field-row field-row--two">
                 <div className="field-group">
                   <label>Phone Number *</label>
@@ -2386,14 +2389,24 @@ function App() {
                 </div>
               </div>
 
-              <div className="field-group">
-                <label>Identity Number *</label>
-                <input
-                  placeholder="CNIC or Passport number"
-                  value={verificationForm.identity_number}
-                  onChange={(e) => setVerificationForm({ ...verificationForm, identity_number: e.target.value })}
-                  required
-                />
+              <div className="field-row field-row--two">
+                <div className="field-group">
+                  <label>Identity Number *</label>
+                  <input
+                    placeholder="CNIC or Passport number"
+                    value={verificationForm.identity_number}
+                    onChange={(e) => setVerificationForm({ ...verificationForm, identity_number: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="field-group">
+                  <label>ID Front <span className="optional">(optional)</span></label>
+                  <input
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    onChange={(e) => setVerificationFiles({ ...verificationFiles, identity_front: e.target.files?.[0] ?? null })}
+                  />
+                </div>
               </div>
 
               <div className="field-group">
@@ -2407,22 +2420,72 @@ function App() {
                 />
               </div>
 
-              <div className="field-row field-row--two">
+              {/* ── Social Media Links ── */}
+              <div className="kyc-modal__section">
+                <div className="kyc-modal__section-title">
+                  <Globe2 size={13} />
+                  <span>Social Media Links <span className="optional">(all optional)</span></span>
+                </div>
+                <div className="field-row field-row--two">
+                  <div className="field-group">
+                    <label>LinkedIn</label>
+                    <input
+                      placeholder="https://linkedin.com/in/..."
+                      value={verificationForm.linkedin_url}
+                      onChange={(e) => setVerificationForm({ ...verificationForm, linkedin_url: e.target.value })}
+                    />
+                  </div>
+                  <div className="field-group">
+                    <label>Twitter / X</label>
+                    <input
+                      placeholder="https://twitter.com/..."
+                      value={verificationForm.twitter_url}
+                      onChange={(e) => setVerificationForm({ ...verificationForm, twitter_url: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="field-row field-row--two">
+                  <div className="field-group">
+                    <label>Facebook</label>
+                    <input
+                      placeholder="https://facebook.com/..."
+                      value={verificationForm.facebook_url}
+                      onChange={(e) => setVerificationForm({ ...verificationForm, facebook_url: e.target.value })}
+                    />
+                  </div>
+                  <div className="field-group">
+                    <label>Instagram</label>
+                    <input
+                      placeholder="https://instagram.com/..."
+                      value={verificationForm.instagram_url}
+                      onChange={(e) => setVerificationForm({ ...verificationForm, instagram_url: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Business Proof Video ── */}
+              <div className="kyc-modal__section">
+                <div className="kyc-modal__section-title">
+                  <Video size={13} />
+                  <span>Business Proof Video <span className="optional">(optional)</span></span>
+                </div>
                 <div className="field-group">
-                  <label>LinkedIn URL <span className="optional">(optional)</span></label>
+                  <label>Video Link <span className="optional">(YouTube / Vimeo / Drive)</span></label>
                   <input
-                    placeholder="https://linkedin.com/in/..."
-                    value={verificationForm.linkedin_url}
-                    onChange={(e) => setVerificationForm({ ...verificationForm, linkedin_url: e.target.value })}
+                    placeholder="https://youtube.com/watch?v=..."
+                    value={verificationForm.proof_video_url}
+                    onChange={(e) => setVerificationForm({ ...verificationForm, proof_video_url: e.target.value })}
                   />
                 </div>
                 <div className="field-group">
-                  <label>ID Front <span className="optional">(optional)</span></label>
+                  <label>Upload Video File <span className="optional">(MP4 / MOV / WebM · max 50 MB)</span></label>
                   <input
                     type="file"
-                    accept=".jpg,.jpeg,.png,.pdf"
-                    onChange={(e) => setVerificationFiles({ ...verificationFiles, identity_front: e.target.files?.[0] ?? null })}
+                    accept=".mp4,.mov,.webm,video/mp4,video/quicktime,video/webm"
+                    onChange={(e) => setVerificationFiles({ ...verificationFiles, proof_video_file: e.target.files?.[0] ?? null })}
                   />
+                  <span className="kyc-modal__file-hint">Show your business / product in action. Admin reviewers will watch this.</span>
                 </div>
               </div>
 
