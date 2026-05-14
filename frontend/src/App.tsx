@@ -162,6 +162,9 @@ function App() {
   const [adminUserFilter, setAdminUserFilter] = useState<'all' | 'active' | 'frozen'>('all')
   const [adminProposalFilter, setAdminProposalFilter] = useState<'all' | 'pending' | 'approved'>('all')
   const [showAllTransactions, setShowAllTransactions] = useState(false)
+  const [showKycModal, setShowKycModal] = useState(false)
+  const [kycSubmitting, setKycSubmitting] = useState(false)
+  const [selectedEntrepreneurId, setSelectedEntrepreneurId] = useState<number | null>(null)
 
   const [user, setUser] = useState<User | null>(null)
   const [users, setUsers] = useState<User[]>([])
@@ -271,15 +274,36 @@ function App() {
     [approvedProposals, visibleProposals],
   )
 
+  const uniqueEntrepreneurs = useMemo(() => {
+    const map = new Map<number, { id: number; email: string; proposalCount: number; totalFunding: number }>()
+    for (const p of proposals) {
+      if (!map.has(p.entrepreneur)) {
+        map.set(p.entrepreneur, {
+          id: p.entrepreneur,
+          email: p.entrepreneur_email || `User #${p.entrepreneur}`,
+          proposalCount: 0,
+          totalFunding: 0,
+        })
+      }
+      const entry = map.get(p.entrepreneur)!
+      entry.proposalCount++
+      entry.totalFunding += Number(p.required_funding || 0)
+    }
+    return Array.from(map.values())
+  }, [proposals])
+
   const filteredInvestorMarketplaceProposals = useMemo(() => {
+    let filtered = selectedEntrepreneurId !== null
+      ? visibleProposals.filter((proposal) => proposal.entrepreneur === selectedEntrepreneurId)
+      : visibleProposals
     if (investorProposalFilter === 'approved') {
-      return visibleProposals.filter((proposal) => proposal.status === 'approved')
+      return filtered.filter((proposal) => proposal.status === 'approved')
     }
     if (investorProposalFilter === 'pending') {
-      return visibleProposals.filter((proposal) => proposal.status === 'pending')
+      return filtered.filter((proposal) => proposal.status === 'pending')
     }
-    return visibleProposals
-  }, [visibleProposals, investorProposalFilter])
+    return filtered
+  }, [visibleProposals, investorProposalFilter, selectedEntrepreneurId])
 
   const visibleChats = useMemo(() => {
     if (!normalizedQuery) return chats
@@ -445,12 +469,40 @@ function App() {
       const me = await getMe()
       setUser(me)
       hydrateVerificationForm(me.verification)
-      setPage(me.role === 'admin' ? 'admin' : 'dashboard')
       await refreshAll(me)
       setStatusText('Authentication successful.')
+      if (authMode === 'signup' && me.role !== 'admin') {
+        setShowKycModal(true)
+      } else {
+        setPage(me.role === 'admin' ? 'admin' : 'dashboard')
+      }
     } catch (error) {
       console.error(error)
       setStatusText('Authentication failed. Please verify credentials.')
+    }
+  }
+
+  async function onSubmitKycModal(event: FormEvent) {
+    event.preventDefault()
+    if (!user) return
+    setKycSubmitting(true)
+    const data = new FormData()
+    Object.entries(verificationForm).forEach(([key, value]) => data.append(key, String(value ?? '')))
+    Object.entries(verificationFiles).forEach(([key, file]) => {
+      if (file) data.append(key, file)
+    })
+    data.append('submit', 'true')
+    try {
+      const verification = await patchVerification(data)
+      setUser({ ...user, verification, verified: verification.status === 'approved' })
+      setStatusText('KYC submitted for admin review. You can update details anytime from Settings.')
+    } catch (error) {
+      console.error(error)
+      setStatusText('KYC save failed. You can complete it later from Settings.')
+    } finally {
+      setKycSubmitting(false)
+      setShowKycModal(false)
+      setPage(user.role === 'admin' ? 'admin' : 'dashboard')
     }
   }
 
@@ -1663,6 +1715,35 @@ function App() {
                 </div>
               </div>
 
+              {/* Entrepreneur filter sidebar */}
+              <div className="entrepreneur-filter-bar">
+                <button
+                  type="button"
+                  className={`entrepreneur-filter-item ${selectedEntrepreneurId === null ? 'active' : ''}`}
+                  onClick={() => setSelectedEntrepreneurId(null)}
+                >
+                  <div className="entrepreneur-filter-item__avatar">All</div>
+                  <div className="entrepreneur-filter-item__info">
+                    <strong>All Entrepreneurs</strong>
+                    <span>{proposals.length} proposals</span>
+                  </div>
+                </button>
+                {uniqueEntrepreneurs.map((ent) => (
+                  <button
+                    type="button"
+                    key={ent.id}
+                    className={`entrepreneur-filter-item ${selectedEntrepreneurId === ent.id ? 'active' : ''}`}
+                    onClick={() => setSelectedEntrepreneurId(selectedEntrepreneurId === ent.id ? null : ent.id)}
+                  >
+                    <div className="entrepreneur-filter-item__avatar">{ent.email.slice(0, 2).toUpperCase()}</div>
+                    <div className="entrepreneur-filter-item__info">
+                      <strong>{ent.email.split('@')[0]}</strong>
+                      <span>{ent.proposalCount} proposal{ent.proposalCount !== 1 ? 's' : ''} · {formatMoney(ent.totalFunding)}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
               <div className="proposal-grid proposal-grid--investor">
                 <article className="panel panel--table panel--span-2">
                   <div className="panel-head">
@@ -2270,6 +2351,93 @@ function App() {
           )}
         </main>
       </div>
+
+      {/* KYC MANDATORY ONBOARDING MODAL — shown after signup, cannot be dismissed */}
+      {showKycModal && user && (
+        <div className="kyc-modal-overlay">
+          <div className="kyc-modal">
+            <div className="kyc-modal__header">
+              <div className="kyc-modal__icon"><ShieldCheck size={28} /></div>
+              <h2>Complete KYC Verification</h2>
+              <p>This is required before accessing the platform. Your information will be reviewed by our admin team.</p>
+            </div>
+
+            <form onSubmit={onSubmitKycModal} className="kyc-modal__form">
+              <div className="field-row field-row--two">
+                <div className="field-group">
+                  <label>Phone Number *</label>
+                  <input
+                    type="tel"
+                    placeholder="e.g. +92 300 1234567"
+                    value={verificationForm.phone_number}
+                    onChange={(e) => setVerificationForm({ ...verificationForm, phone_number: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="field-group">
+                  <label>Identity Type *</label>
+                  <select
+                    value={verificationForm.identity_type}
+                    onChange={(e) => setVerificationForm({ ...verificationForm, identity_type: e.target.value as 'cnic' | 'passport' })}
+                  >
+                    <option value="cnic">CNIC / National ID</option>
+                    <option value="passport">Passport</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="field-group">
+                <label>Identity Number *</label>
+                <input
+                  placeholder="CNIC or Passport number"
+                  value={verificationForm.identity_number}
+                  onChange={(e) => setVerificationForm({ ...verificationForm, identity_number: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="field-group">
+                <label>Full Address *</label>
+                <textarea
+                  placeholder="Street, City, Country"
+                  value={verificationForm.address}
+                  onChange={(e) => setVerificationForm({ ...verificationForm, address: e.target.value })}
+                  required
+                  rows={2}
+                />
+              </div>
+
+              <div className="field-row field-row--two">
+                <div className="field-group">
+                  <label>LinkedIn URL <span className="optional">(optional)</span></label>
+                  <input
+                    placeholder="https://linkedin.com/in/..."
+                    value={verificationForm.linkedin_url}
+                    onChange={(e) => setVerificationForm({ ...verificationForm, linkedin_url: e.target.value })}
+                  />
+                </div>
+                <div className="field-group">
+                  <label>ID Front <span className="optional">(optional)</span></label>
+                  <input
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    onChange={(e) => setVerificationFiles({ ...verificationFiles, identity_front: e.target.files?.[0] ?? null })}
+                  />
+                </div>
+              </div>
+
+              <div className="kyc-modal__note">
+                <ShieldCheck size={14} />
+                <span>Your KYC will be reviewed by admin within 24–48 hours. You can continue using the platform in the meantime.</span>
+              </div>
+
+              <button type="submit" className="button-primary button-primary--full" disabled={kycSubmitting}>
+                {kycSubmitting ? 'Submitting KYC...' : 'Submit KYC & Enter Platform'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
