@@ -1721,30 +1721,10 @@ function App() {
                         <span className={`status-pill ${statusTone(proposal.status)}`}>{proposal.status}</span>
                       </button>
                     ))}
+                    {visibleProposals.length === 0 && (
+                      <p style={{padding:'1rem', color:'var(--text-muted)', fontSize:'0.875rem'}}>No proposals yet. Fill out the form to submit your first one.</p>
+                    )}
                   </div>
-                  {selectedProposal && (
-                    <div className="detail-card">
-                      <h4>{selectedProposal.title}</h4>
-                      <p>{selectedProposal.description || 'No description provided.'}</p>
-                      <ul>
-                        <li>Funding target: {formatMoney(selectedProposal.required_funding)}</li>
-                        <li>Timeline: {selectedProposal.timeline || 'N/A'}</li>
-                        <li>Status: {selectedProposal.status}</li>
-                        {selectedProposal.admin_message && <li>Admin message: {selectedProposal.admin_message}</li>}
-                        {selectedProposal.startup_website_url && <li><a href={selectedProposal.startup_website_url} target="_blank" rel="noreferrer">Startup website</a></li>}
-                        {selectedProposal.pitch_video_url && <li><a href={selectedProposal.pitch_video_url} target="_blank" rel="noreferrer">Pitch video</a></li>}
-                        {selectedProposal.proof_video_url && <li><a href={selectedProposal.proof_video_url} target="_blank" rel="noreferrer">Working system proof</a></li>}
-                        {selectedProposal.document_file && (
-                          <li><button type="button" className="text-button" onClick={() => onDownloadFile(selectedProposal.document_file, selectedProposal.document_name || 'proposal-document')}>Download uploaded document</button></li>
-                        )}
-                      </ul>
-                      <div className="detail-actions">
-                        <button type="button" className="button-secondary button-secondary--danger" onClick={() => onDeleteProposal(selectedProposal.id)}>
-                          <Trash2 size={16} /> Delete Proposal
-                        </button>
-                      </div>
-                    </div>
-                  )}
                 </aside>
               </div>
             </section>
@@ -2401,6 +2381,80 @@ function App() {
           )}
         </main>
       </div>
+
+      {/* ── ENTREPRENEUR PROPOSAL DETAIL MODAL ── */}
+      {selectedProposal && user?.role === 'entrepreneur' && page === 'proposals' && (
+        <div className="proposal-detail-overlay" onClick={() => setSelectedProposalId(null)}>
+          <div className="proposal-detail-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="proposal-detail-modal__header">
+              <div>
+                <h2>{selectedProposal.title}</h2>
+                <p className="proposal-detail-modal__category">{selectedProposal.category}</p>
+              </div>
+              <button type="button" className="modal-close-btn" onClick={() => setSelectedProposalId(null)}>✕</button>
+            </div>
+
+            <div className="proposal-detail-modal__body">
+              <div className="proposal-detail-modal__status-row">
+                <span className={`status-pill ${statusTone(selectedProposal.status)}`}>{selectedProposal.status}</span>
+                <span className="proposal-detail-modal__funding">Funding Target: <strong>{formatMoney(selectedProposal.required_funding)}</strong></span>
+                {selectedProposal.timeline && <span className="proposal-detail-modal__timeline">Timeline: <strong>{selectedProposal.timeline}</strong></span>}
+              </div>
+
+              {selectedProposal.admin_message && (
+                <div className="proposal-detail-modal__admin-msg">
+                  <AlertTriangle size={15} />
+                  <div><strong>Admin Message:</strong> {selectedProposal.admin_message}</div>
+                </div>
+              )}
+
+              {selectedProposal.description && (
+                <div className="proposal-detail-modal__section">
+                  <span className="proposal-detail-modal__label">Description</span>
+                  <p>{selectedProposal.description}</p>
+                </div>
+              )}
+
+              {selectedProposal.startup_details && (
+                <div className="proposal-detail-modal__section">
+                  <span className="proposal-detail-modal__label">Startup Details</span>
+                  <p>{selectedProposal.startup_details}</p>
+                </div>
+              )}
+
+              <div className="proposal-detail-modal__links">
+                {selectedProposal.startup_website_url && (
+                  <a href={selectedProposal.startup_website_url} target="_blank" rel="noreferrer" className="proposal-detail-modal__link-btn">
+                    🌐 Startup Website
+                  </a>
+                )}
+                {selectedProposal.pitch_video_url && (
+                  <a href={selectedProposal.pitch_video_url} target="_blank" rel="noreferrer" className="proposal-detail-modal__link-btn">
+                    🎬 Pitch Video
+                  </a>
+                )}
+                {selectedProposal.proof_video_url && (
+                  <a href={selectedProposal.proof_video_url} target="_blank" rel="noreferrer" className="proposal-detail-modal__link-btn">
+                    📹 System Proof Video
+                  </a>
+                )}
+                {selectedProposal.document_file && (
+                  <button type="button" className="proposal-detail-modal__link-btn" onClick={() => onDownloadFile(selectedProposal.document_file, selectedProposal.document_name || 'proposal-document')}>
+                    📄 Download Document
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="proposal-detail-modal__footer">
+              <button type="button" className="button-secondary" onClick={() => setSelectedProposalId(null)}>Close</button>
+              <button type="button" className="button-secondary button-secondary--danger" onClick={() => { onDeleteProposal(selectedProposal.id); setSelectedProposalId(null) }}>
+                <Trash2 size={15} /> Delete Proposal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── GLOBAL KYC REJECTION ALERT ── */}
       {user && user.role === 'entrepreneur' && user.verification?.status === 'rejected' && (
