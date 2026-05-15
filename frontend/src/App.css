@@ -1997,6 +1997,9 @@ label {
 }
 .kyc-rejection-banner > div { flex: 1; }
 .kyc-rejection-banner .button-secondary { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.4); color: #fff; }
+/* Incomplete KYC banner — orange tone instead of red */
+.kyc-incomplete-banner { background: #b45309; }
+.kyc-incomplete-banner .button-primary { background: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.5); color: #fff; font-weight: 600; }
 
 .kyc-approved-banner {
   position: fixed;

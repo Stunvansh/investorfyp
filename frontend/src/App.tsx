@@ -1403,13 +1403,13 @@ function App() {
                     )}
                     <form onSubmit={onSubmitVerification} className="form-grid">
                       <div className="field-row field-row--two">
-                        <input placeholder="92301XXXXXXX (11 digits)" value={verificationForm.phone_number} onChange={(e) => setVerificationForm({ ...verificationForm, phone_number: e.target.value })} required />
+                        <input placeholder="Phone number" value={verificationForm.phone_number} onChange={(e) => setVerificationForm({ ...verificationForm, phone_number: e.target.value })} required />
                         <select value={verificationForm.identity_type} onChange={(e) => setVerificationForm({ ...verificationForm, identity_type: e.target.value as 'cnic' | 'passport' })}>
                           <option value="cnic">CNIC / National ID</option>
                           <option value="passport">Passport</option>
                         </select>
                       </div>
-                      <input placeholder="CNIC: 13 digits e.g. 1234567890123" value={verificationForm.identity_number} onChange={(e) => setVerificationForm({ ...verificationForm, identity_number: e.target.value })} required />
+                      <input placeholder="CNIC number" value={verificationForm.identity_number} onChange={(e) => setVerificationForm({ ...verificationForm, identity_number: e.target.value })} required />
                       <textarea placeholder="Full address" value={verificationForm.address} onChange={(e) => setVerificationForm({ ...verificationForm, address: e.target.value })} required />
                       <div className="field-row field-row--two">
                         <input placeholder="Startup website URL" value={verificationForm.startup_website_url} onChange={(e) => setVerificationForm({ ...verificationForm, startup_website_url: e.target.value })} />
@@ -2487,6 +2487,19 @@ function App() {
         </div>
       )}
 
+      {/* ── GLOBAL KYC INCOMPLETE ALERT (no KYC submitted yet, shown on every page load) ── */}
+      {user && user.role !== 'admin' && !user.verification && page !== 'landing' && page !== 'auth' && (
+        <div className="kyc-rejection-banner kyc-incomplete-banner">
+          <AlertTriangle size={18} />
+          <div>
+            <strong>KYC Required:</strong>{' '}Your identity is not verified. Complete KYC to access all platform features.
+          </div>
+          <button type="button" className="button-primary button-secondary--small" onClick={() => setShowKycModal(true)}>
+            Complete KYC
+          </button>
+        </div>
+      )}
+
       {/* ── GLOBAL KYC REJECTION ALERT ── */}
       {user && user.role === 'entrepreneur' && user.verification?.status === 'rejected' && (
         <div className="kyc-rejection-banner">
@@ -2603,7 +2616,7 @@ function App() {
                   <label>Phone Number *</label>
                   <input
                     type="tel"
-                    placeholder="92301XXXXXXX (11 digits, starts with 92)"
+                    placeholder="Phone number"
                     value={verificationForm.phone_number}
                     onChange={(e) => setVerificationForm({ ...verificationForm, phone_number: e.target.value })}
                     required
@@ -2625,7 +2638,7 @@ function App() {
                 <div className="field-group">
                   <label>Identity Number *</label>
                   <input
-                    placeholder="CNIC: 13 digits e.g. 1234567890123"
+                    placeholder="CNIC number"
                     value={verificationForm.identity_number}
                     onChange={(e) => setVerificationForm({ ...verificationForm, identity_number: e.target.value })}
                     required
