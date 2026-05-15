@@ -499,6 +499,22 @@ function App() {
   async function onSubmitKycModal(event: FormEvent) {
     event.preventDefault()
     if (!user) return
+
+    // Phone: must start with 92, exactly 11 digits
+    const rawPhone = verificationForm.phone_number.replace(/\s+/g, '')
+    if (!/^92\d{9}$/.test(rawPhone)) {
+      setStatusText('Phone number must start with 92 and be exactly 11 digits — e.g. 92301XXXXXXX')
+      return
+    }
+    // CNIC: exactly 13 digits (dashes allowed)
+    if (verificationForm.identity_type === 'cnic') {
+      const rawCnic = verificationForm.identity_number.replace(/-/g, '')
+      if (!/^\d{13}$/.test(rawCnic)) {
+        setStatusText('CNIC must be exactly 13 digits — e.g. 1234567890123 or 12345-1234567-1')
+        return
+      }
+    }
+
     setKycSubmitting(true)
     const data = new FormData()
     Object.entries(verificationForm).forEach(([key, value]) => data.append(key, String(value ?? '')))
@@ -615,6 +631,21 @@ function App() {
   async function onSubmitVerification(event: FormEvent) {
     event.preventDefault()
     if (!user || user.role !== 'entrepreneur') return
+
+    // Phone: must start with 92, exactly 11 digits
+    const rawPhone = verificationForm.phone_number.replace(/\s+/g, '')
+    if (!/^92\d{9}$/.test(rawPhone)) {
+      setStatusText('Phone number must start with 92 and be exactly 11 digits — e.g. 92301XXXXXXX')
+      return
+    }
+    // CNIC: exactly 13 digits (dashes allowed)
+    if (verificationForm.identity_type === 'cnic') {
+      const rawCnic = verificationForm.identity_number.replace(/-/g, '')
+      if (!/^\d{13}$/.test(rawCnic)) {
+        setStatusText('CNIC must be exactly 13 digits — e.g. 1234567890123 or 12345-1234567-1')
+        return
+      }
+    }
 
     const data = new FormData()
     Object.entries(verificationForm).forEach(([key, value]) => data.append(key, String(value ?? '')))
@@ -1372,13 +1403,13 @@ function App() {
                     )}
                     <form onSubmit={onSubmitVerification} className="form-grid">
                       <div className="field-row field-row--two">
-                        <input placeholder="Phone number" value={verificationForm.phone_number} onChange={(e) => setVerificationForm({ ...verificationForm, phone_number: e.target.value })} required />
+                        <input placeholder="92301XXXXXXX (11 digits)" value={verificationForm.phone_number} onChange={(e) => setVerificationForm({ ...verificationForm, phone_number: e.target.value })} required />
                         <select value={verificationForm.identity_type} onChange={(e) => setVerificationForm({ ...verificationForm, identity_type: e.target.value as 'cnic' | 'passport' })}>
                           <option value="cnic">CNIC / National ID</option>
                           <option value="passport">Passport</option>
                         </select>
                       </div>
-                      <input placeholder="CNIC / Passport number" value={verificationForm.identity_number} onChange={(e) => setVerificationForm({ ...verificationForm, identity_number: e.target.value })} required />
+                      <input placeholder="CNIC: 13 digits e.g. 1234567890123" value={verificationForm.identity_number} onChange={(e) => setVerificationForm({ ...verificationForm, identity_number: e.target.value })} required />
                       <textarea placeholder="Full address" value={verificationForm.address} onChange={(e) => setVerificationForm({ ...verificationForm, address: e.target.value })} required />
                       <div className="field-row field-row--two">
                         <input placeholder="Startup website URL" value={verificationForm.startup_website_url} onChange={(e) => setVerificationForm({ ...verificationForm, startup_website_url: e.target.value })} />
@@ -2572,7 +2603,7 @@ function App() {
                   <label>Phone Number *</label>
                   <input
                     type="tel"
-                    placeholder="e.g. +92 300 1234567"
+                    placeholder="92301XXXXXXX (11 digits, starts with 92)"
                     value={verificationForm.phone_number}
                     onChange={(e) => setVerificationForm({ ...verificationForm, phone_number: e.target.value })}
                     required
@@ -2594,7 +2625,7 @@ function App() {
                 <div className="field-group">
                   <label>Identity Number *</label>
                   <input
-                    placeholder="CNIC or Passport number"
+                    placeholder="CNIC: 13 digits e.g. 1234567890123"
                     value={verificationForm.identity_number}
                     onChange={(e) => setVerificationForm({ ...verificationForm, identity_number: e.target.value })}
                     required
@@ -2613,7 +2644,7 @@ function App() {
               <div className="field-group">
                 <label>Full Address *</label>
                 <textarea
-                  placeholder="Street, City, Country"
+                  placeholder="e.g. House 12, Street 5, Gulshan-e-Iqbal, Karachi"
                   value={verificationForm.address}
                   onChange={(e) => setVerificationForm({ ...verificationForm, address: e.target.value })}
                   required
