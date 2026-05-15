@@ -1446,7 +1446,7 @@ function App() {
                           <option value="passport">Passport</option>
                         </select>
                       </div>
-                      <input placeholder="CNIC number" value={verificationForm.identity_number} onChange={(e) => setVerificationForm({ ...verificationForm, identity_number: e.target.value })} required pattern="\d{13}" maxLength={13} title="CNIC must be exactly 13 digits" />
+                      <input placeholder="00000-0000000-0" value={verificationForm.identity_number} onChange={(e) => { const d = e.target.value.replace(/\D/g, '').slice(0, 13); let f = d; if (d.length > 12) f = d.slice(0,5)+'-'+d.slice(5,12)+'-'+d.slice(12); else if (d.length > 5) f = d.slice(0,5)+'-'+d.slice(5); setVerificationForm({ ...verificationForm, identity_number: f }) }} required pattern="\d{5}-\d{7}-\d" maxLength={15} title="CNIC format: 00000-0000000-0" />
                       <textarea placeholder="Full address" value={verificationForm.address} onChange={(e) => setVerificationForm({ ...verificationForm, address: e.target.value })} required />
                       <div className="field-row field-row--two">
                         <input placeholder="Startup website URL" value={verificationForm.startup_website_url} onChange={(e) => setVerificationForm({ ...verificationForm, startup_website_url: e.target.value })} />
@@ -2676,13 +2676,19 @@ function App() {
                 <div className="field-group">
                   <label>Identity Number *</label>
                   <input
-                    placeholder="CNIC number"
+                    placeholder="00000-0000000-0"
                     value={verificationForm.identity_number}
-                    onChange={(e) => setVerificationForm({ ...verificationForm, identity_number: e.target.value })}
+                    onChange={(e) => {
+                      const d = e.target.value.replace(/\D/g, '').slice(0, 13)
+                      let f = d
+                      if (d.length > 12) f = d.slice(0, 5) + '-' + d.slice(5, 12) + '-' + d.slice(12)
+                      else if (d.length > 5) f = d.slice(0, 5) + '-' + d.slice(5)
+                      setVerificationForm({ ...verificationForm, identity_number: f })
+                    }}
                     required
-                    pattern="\d{13}"
-                    maxLength={13}
-                    title="CNIC must be exactly 13 digits"
+                    pattern="\d{5}-\d{7}-\d"
+                    maxLength={15}
+                    title="CNIC format: 00000-0000000-0"
                   />
                 </div>
                 <div className="field-group">
