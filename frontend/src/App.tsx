@@ -2698,7 +2698,7 @@ function App() {
               <div className="field-group">
                 <label>Full Address *</label>
                 <textarea
-                  placeholder="e.g. House 12, Street 5, Gulshan-e-Iqbal, Karachi"
+                  placeholder="House, Street, City"
                   value={verificationForm.address}
                   onChange={(e) => setVerificationForm({ ...verificationForm, address: e.target.value })}
                   required
@@ -2747,9 +2747,9 @@ function App() {
                   <span>Business Proof Video <span className="optional">(optional)</span></span>
                 </div>
                 <div className="field-group">
-                  <label>Video Link <span className="optional">(YouTube / Vimeo / Drive)</span></label>
+                  <label>Video Link</label>
                   <input
-                    placeholder="https://youtube.com/watch?v=..."
+                    placeholder=""
                     value={verificationForm.proof_video_url}
                     onChange={(e) => setVerificationForm({ ...verificationForm, proof_video_url: e.target.value })}
                   />
