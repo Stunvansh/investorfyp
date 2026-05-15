@@ -509,17 +509,17 @@ function App() {
     event.preventDefault()
     if (!user) return
 
-    // Phone: must start with 92, exactly 11 digits
+    // Phone: exactly 11 digits
     const rawPhone = verificationForm.phone_number.replace(/\s+/g, '')
-    if (!/^92\d{9}$/.test(rawPhone)) {
-      setStatusText('Phone number must start with 92 and be exactly 11 digits — e.g. 92301XXXXXXX')
+    if (!/^\d{11}$/.test(rawPhone)) {
+      setStatusText('Phone number must be exactly 11 digits')
       return
     }
     // CNIC: exactly 13 digits (dashes allowed)
     if (verificationForm.identity_type === 'cnic') {
       const rawCnic = verificationForm.identity_number.replace(/-/g, '')
       if (!/^\d{13}$/.test(rawCnic)) {
-        setStatusText('CNIC must be exactly 13 digits — e.g. 1234567890123 or 12345-1234567-1')
+        setStatusText('CNIC number must be exactly 13 digits')
         return
       }
     }
@@ -643,17 +643,17 @@ function App() {
     event.preventDefault()
     if (!user || user.role !== 'entrepreneur') return
 
-    // Phone: must start with 92, exactly 11 digits
+    // Phone: exactly 11 digits
     const rawPhone = verificationForm.phone_number.replace(/\s+/g, '')
-    if (!/^92\d{9}$/.test(rawPhone)) {
-      setStatusText('Phone number must start with 92 and be exactly 11 digits — e.g. 92301XXXXXXX')
+    if (!/^\d{11}$/.test(rawPhone)) {
+      setStatusText('Phone number must be exactly 11 digits')
       return
     }
     // CNIC: exactly 13 digits (dashes allowed)
     if (verificationForm.identity_type === 'cnic') {
       const rawCnic = verificationForm.identity_number.replace(/-/g, '')
       if (!/^\d{13}$/.test(rawCnic)) {
-        setStatusText('CNIC must be exactly 13 digits — e.g. 1234567890123 or 12345-1234567-1')
+        setStatusText('CNIC number must be exactly 13 digits')
         return
       }
     }
@@ -1440,13 +1440,13 @@ function App() {
                     ) : (
                     <form onSubmit={onSubmitVerification} className="form-grid">
                       <div className="field-row field-row--two">
-                        <input placeholder="Phone number" value={verificationForm.phone_number} onChange={(e) => setVerificationForm({ ...verificationForm, phone_number: e.target.value })} required />
+                        <input placeholder="Phone number" value={verificationForm.phone_number} onChange={(e) => setVerificationForm({ ...verificationForm, phone_number: e.target.value })} required pattern="\d{11}" maxLength={11} title="Phone number must be exactly 11 digits" />
                         <select value={verificationForm.identity_type} onChange={(e) => setVerificationForm({ ...verificationForm, identity_type: e.target.value as 'cnic' | 'passport' })}>
                           <option value="cnic">CNIC / National ID</option>
                           <option value="passport">Passport</option>
                         </select>
                       </div>
-                      <input placeholder="CNIC number" value={verificationForm.identity_number} onChange={(e) => setVerificationForm({ ...verificationForm, identity_number: e.target.value })} required />
+                      <input placeholder="CNIC number" value={verificationForm.identity_number} onChange={(e) => setVerificationForm({ ...verificationForm, identity_number: e.target.value })} required pattern="\d{13}" maxLength={13} title="CNIC must be exactly 13 digits" />
                       <textarea placeholder="Full address" value={verificationForm.address} onChange={(e) => setVerificationForm({ ...verificationForm, address: e.target.value })} required />
                       <div className="field-row field-row--two">
                         <input placeholder="Startup website URL" value={verificationForm.startup_website_url} onChange={(e) => setVerificationForm({ ...verificationForm, startup_website_url: e.target.value })} />
@@ -2655,6 +2655,9 @@ function App() {
                     value={verificationForm.phone_number}
                     onChange={(e) => setVerificationForm({ ...verificationForm, phone_number: e.target.value })}
                     required
+                    pattern="\d{11}"
+                    maxLength={11}
+                    title="Phone number must be exactly 11 digits"
                   />
                 </div>
                 <div className="field-group">
@@ -2677,6 +2680,9 @@ function App() {
                     value={verificationForm.identity_number}
                     onChange={(e) => setVerificationForm({ ...verificationForm, identity_number: e.target.value })}
                     required
+                    pattern="\d{13}"
+                    maxLength={13}
+                    title="CNIC must be exactly 13 digits"
                   />
                 </div>
                 <div className="field-group">
@@ -2716,24 +2722,6 @@ function App() {
                     />
                   </div>
                   <div className="field-group">
-                    <label>Twitter / X</label>
-                    <input
-                      placeholder="https://twitter.com/..."
-                      value={verificationForm.twitter_url}
-                      onChange={(e) => setVerificationForm({ ...verificationForm, twitter_url: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <div className="field-row field-row--two">
-                  <div className="field-group">
-                    <label>Facebook</label>
-                    <input
-                      placeholder="https://facebook.com/..."
-                      value={verificationForm.facebook_url}
-                      onChange={(e) => setVerificationForm({ ...verificationForm, facebook_url: e.target.value })}
-                    />
-                  </div>
-                  <div className="field-group">
                     <label>Instagram</label>
                     <input
                       placeholder="https://instagram.com/..."
@@ -2741,6 +2729,14 @@ function App() {
                       onChange={(e) => setVerificationForm({ ...verificationForm, instagram_url: e.target.value })}
                     />
                   </div>
+                </div>
+                <div className="field-group">
+                  <label>Facebook</label>
+                  <input
+                    placeholder="https://facebook.com/..."
+                    value={verificationForm.facebook_url}
+                    onChange={(e) => setVerificationForm({ ...verificationForm, facebook_url: e.target.value })}
+                  />
                 </div>
               </div>
 
