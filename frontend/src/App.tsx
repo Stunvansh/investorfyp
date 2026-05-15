@@ -217,6 +217,7 @@ function App() {
     proof_video_url: '',
   })
   const [proposalDocumentFile, setProposalDocumentFile] = useState<File | null>(null)
+  const [proposalFormKey, setProposalFormKey] = useState(0)
 
   const [verificationForm, setVerificationForm] = useState({
     phone_number: '',
@@ -679,6 +680,21 @@ function App() {
       }
       if (user) await refreshAll(user)
       setStatusText('✅ Proposal submitted for admin approval.')
+      // Clear form after successful submission
+      setProposalForm({
+        title: '',
+        startup_details: '',
+        description: '',
+        category: 'FinTech',
+        required_funding: 10000,
+        timeline: '3 months',
+        document_name: '',
+        pitch_video_url: '',
+        startup_website_url: '',
+        proof_video_url: '',
+      })
+      setProposalDocumentFile(null)
+      setProposalFormKey((k) => k + 1)
     } catch {
       setStatusText('Failed to submit proposal.')
     } finally {
@@ -1712,7 +1728,7 @@ function App() {
                       <p>The functionality below is unchanged; only the visual structure has been rebuilt from the exported design style.</p>
                     </div>
                   </div>
-                  <form onSubmit={onSubmitProposal} className="form-grid">
+                  <form key={proposalFormKey} onSubmit={onSubmitProposal} className="form-grid">
                     <input placeholder="Business Title" value={proposalForm.title} onChange={(e) => setProposalForm({ ...proposalForm, title: e.target.value })} required />
                     <input placeholder="Startup Details" value={proposalForm.startup_details} onChange={(e) => setProposalForm({ ...proposalForm, startup_details: e.target.value })} required />
                     <textarea placeholder="Pitch Description" value={proposalForm.description} onChange={(e) => setProposalForm({ ...proposalForm, description: e.target.value })} />
