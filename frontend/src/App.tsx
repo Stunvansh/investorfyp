@@ -166,7 +166,7 @@ function App() {
   const [showKycModal, setShowKycModal] = useState(false)
   const [kycSubmitting, setKycSubmitting] = useState(false)
   const [selectedEntrepreneurId, setSelectedEntrepreneurId] = useState<number | null>(null)
-  const [showKycApprovedBanner, setShowKycApprovedBanner] = useState(true)
+  const [showKycApprovedBanner, setShowKycApprovedBanner] = useState(false)
   const [proposalSubmitting, setProposalSubmitting] = useState(false)
 
   const [showKycDetailModal, setShowKycDetailModal] = useState(false)
@@ -464,6 +464,10 @@ function App() {
         hydrateVerificationForm(me.verification)
         setPage(me.role === 'admin' ? 'admin' : 'dashboard')
         refreshAll(me)
+        if (verificationStatus(me) === 'approved' && me.verification?.admin_message && !sessionStorage.getItem('kyc_approved_seen')) {
+          setShowKycApprovedBanner(true)
+          sessionStorage.setItem('kyc_approved_seen', '1')
+        }
       })
       .catch(() => {
         setUser(null)
@@ -485,6 +489,10 @@ function App() {
       setUser(me)
       hydrateVerificationForm(me.verification)
       await refreshAll(me)
+      if (verificationStatus(me) === 'approved' && me.verification?.admin_message && !sessionStorage.getItem('kyc_approved_seen')) {
+        setShowKycApprovedBanner(true)
+        sessionStorage.setItem('kyc_approved_seen', '1')
+      }
       setStatusText('Authentication successful.')
       if (authMode === 'signup' && me.role !== 'admin') {
         setShowKycModal(true)
@@ -539,6 +547,8 @@ function App() {
 
   function onLogout() {
     clearToken()
+    sessionStorage.removeItem('kyc_approved_seen')
+    setShowKycApprovedBanner(false)
     setUser(null)
     setUsers([])
     setProposals([])
@@ -1413,9 +1423,21 @@ function App() {
                       </div>
                       <span className={`status-pill ${statusTone(verificationStatus(user))}`}>{verificationStatus(user)}</span>
                     </div>
-                    {user.verification?.admin_message && (
-                      <div className="status-banner">Admin message: {user.verification.admin_message}</div>
+                    {showKycApprovedBanner && user.verification?.admin_message && (
+                      <div className="status-banner" style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'0.75rem'}}>
+                        <span>Admin message: {user.verification.admin_message}</span>
+                        <button type="button" onClick={() => setShowKycApprovedBanner(false)} style={{background:'none',border:'none',cursor:'pointer',color:'var(--primary-dark)',fontSize:'1.2rem',lineHeight:1,flexShrink:0}}>✕</button>
+                      </div>
                     )}
+                    {verificationStatus(user) === 'approved' ? (
+                      <div className="verification-approved">
+                        <ShieldCheck size={36} className="verification-approved__icon" />
+                        <div>
+                          <h4>Founder Verification Approved</h4>
+                          <p>Your identity has been verified by admin. You now have full access to all platform features including proposal submissions.</p>
+                        </div>
+                      </div>
+                    ) : (
                     <form onSubmit={onSubmitVerification} className="form-grid">
                       <div className="field-row field-row--two">
                         <input placeholder="Phone number" value={verificationForm.phone_number} onChange={(e) => setVerificationForm({ ...verificationForm, phone_number: e.target.value })} required />
@@ -1432,12 +1454,9 @@ function App() {
                       </div>
                       <div className="field-row field-row--two">
                         <input placeholder="LinkedIn URL" value={verificationForm.linkedin_url} onChange={(e) => setVerificationForm({ ...verificationForm, linkedin_url: e.target.value })} />
-                        <input placeholder="Twitter/X URL" value={verificationForm.twitter_url} onChange={(e) => setVerificationForm({ ...verificationForm, twitter_url: e.target.value })} />
-                      </div>
-                      <div className="field-row field-row--two">
-                        <input placeholder="Facebook URL" value={verificationForm.facebook_url} onChange={(e) => setVerificationForm({ ...verificationForm, facebook_url: e.target.value })} />
                         <input placeholder="Instagram URL" value={verificationForm.instagram_url} onChange={(e) => setVerificationForm({ ...verificationForm, instagram_url: e.target.value })} />
                       </div>
+                      <input placeholder="Facebook URL" value={verificationForm.facebook_url} onChange={(e) => setVerificationForm({ ...verificationForm, facebook_url: e.target.value })} />
                       <div className="field-row field-row--two">
                         <label>CNIC front / identity front<input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => setVerificationFiles({ ...verificationFiles, identity_front: e.target.files?.[0] ?? null })} /></label>
                         <label>CNIC back / identity back<input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => setVerificationFiles({ ...verificationFiles, identity_back: e.target.files?.[0] ?? null })} /></label>
@@ -1448,6 +1467,7 @@ function App() {
                       </div>
                       <button type="submit" className="button-primary">Submit Verification for Admin Review</button>
                     </form>
+                    )}
                   </article>
                 )}
               </div>
