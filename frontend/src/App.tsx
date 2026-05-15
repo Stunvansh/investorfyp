@@ -1343,7 +1343,13 @@ function App() {
                       <input placeholder="Last name" value={authForm.last_name} onChange={(e) => setAuthForm({ ...authForm, last_name: e.target.value })} />
                     </div>
                   )}
-                  <input type="email" placeholder="Email" value={authForm.email} onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })} required />
+                  <input type="email" placeholder="Email" value={authForm.email} onChange={(e) => {
+                    const email = e.target.value
+                    setAuthForm({ ...authForm, email })
+                    const lower = email.toLowerCase()
+                    if (lower.includes('investor')) setAuthRole('investor')
+                    else if (lower.includes('entrepreneur') || lower.includes('founder')) setAuthRole('entrepreneur')
+                  }} required />
                   <input type="password" placeholder="Password" value={authForm.password} onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })} required />
                   <button type="submit" className="button-primary button-primary--full">Continue to Workspace</button>
                 </form>
