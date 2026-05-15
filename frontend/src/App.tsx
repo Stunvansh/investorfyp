@@ -1392,7 +1392,6 @@ function App() {
                       <>
                         <input placeholder="Business Idea" value={user.business_idea || ''} onChange={(e) => setUser({ ...user, business_idea: e.target.value })} />
                         <input placeholder="Funding Required" value={user.funding_required || ''} onChange={(e) => setUser({ ...user, funding_required: e.target.value })} />
-                        <input placeholder="Startup Documents" value={user.startup_documents || ''} onChange={(e) => setUser({ ...user, startup_documents: e.target.value })} />
                       </>
                     ) : (
                       <>
