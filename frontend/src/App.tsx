@@ -47,6 +47,7 @@ import {
   deleteProposal,
   deleteUser,
   downloadProtectedFile,
+  getAdminUser,
   getChatRooms,
   getEscrowSummary,
   getMe,
@@ -174,6 +175,7 @@ function App() {
 
   const [showKycDetailModal, setShowKycDetailModal] = useState(false)
   const [kycDetailTarget, setKycDetailTarget] = useState<User | null>(null)
+  const [kycDetailLoading, setKycDetailLoading] = useState(false)
   const [showRejectionModal, setShowRejectionModal] = useState(false)
   const [rejectionMessage, setRejectionMessage] = useState('')
   const [kycRejectionTarget, setKycRejectionTarget] = useState<User | null>(null)
@@ -211,9 +213,9 @@ function App() {
     title: '',
     startup_details: '',
     description: '',
-    category: 'FinTech',
-    required_funding: 10000,
-    timeline: '3 months',
+    category: '',
+    required_funding: 0,
+    timeline: '',
     document_name: '',
     pitch_video_url: '',
     startup_website_url: '',
@@ -405,20 +407,30 @@ function App() {
   }, [user])
 
   function hydrateVerificationForm(verification: User['verification']) {
-    if (!verification) return
     setVerificationForm({
-      phone_number: verification.phone_number || '',
-      address: verification.address || '',
-      identity_type: verification.identity_type || 'cnic',
-      identity_number: verification.identity_number || '',
-      startup_website_url: verification.startup_website_url || '',
-      proof_video_url: verification.proof_video_url || '',
-      linkedin_url: verification.linkedin_url || '',
-      twitter_url: verification.twitter_url || '',
-      facebook_url: verification.facebook_url || '',
-      instagram_url: verification.instagram_url || '',
+      phone_number: verification?.phone_number || '',
+      address: verification?.address || '',
+      identity_type: (verification?.identity_type as 'cnic' | 'passport') || 'cnic',
+      identity_number: verification?.identity_number || '',
+      startup_website_url: verification?.startup_website_url || '',
+      proof_video_url: verification?.proof_video_url || '',
+      linkedin_url: verification?.linkedin_url || '',
+      twitter_url: verification?.twitter_url || '',
+      facebook_url: verification?.facebook_url || '',
+      instagram_url: verification?.instagram_url || '',
     })
   }
+
+  // When admin opens the KYC detail modal, fetch fresh user data to avoid stale N/A
+  useEffect(() => {
+    if (!showKycDetailModal || !kycDetailTarget) return
+    setKycDetailLoading(true)
+    getAdminUser(kycDetailTarget.id)
+      .then((freshUser) => setKycDetailTarget(freshUser))
+      .catch(() => { /* keep stale data if fetch fails */ })
+      .finally(() => setKycDetailLoading(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showKycDetailModal])
 
   async function refreshAll(activeUser: User) {
     try {
@@ -520,7 +532,7 @@ function App() {
     if (!user) return
 
     // Phone: exactly 11 digits
-    const rawPhone = verificationForm.phone_number.replace(/\s+/g, '')
+    const rawPhone = verificationForm.phone_number.replace(/[_\s]/g, '')
     if (!/^\d{11}$/.test(rawPhone)) {
       setStatusText('Phone number must be exactly 11 digits')
       return
@@ -566,6 +578,18 @@ function App() {
     setTransactions([])
     setChats([])
     setMessages([])
+    setVerificationForm({
+      phone_number: '',
+      address: '',
+      identity_type: 'cnic',
+      identity_number: '',
+      startup_website_url: '',
+      proof_video_url: '',
+      linkedin_url: '',
+      twitter_url: '',
+      facebook_url: '',
+      instagram_url: '',
+    })
     setPage('landing')
     setSelectedProposalId(null)
     setAdminView('users')
@@ -654,7 +678,7 @@ function App() {
     if (!user || user.role !== 'entrepreneur') return
 
     // Phone: exactly 11 digits
-    const rawPhone = verificationForm.phone_number.replace(/\s+/g, '')
+    const rawPhone = verificationForm.phone_number.replace(/[_\s]/g, '')
     if (!/^\d{11}$/.test(rawPhone)) {
       setStatusText('Phone number must be exactly 11 digits')
       return
@@ -705,9 +729,9 @@ function App() {
         title: '',
         startup_details: '',
         description: '',
-        category: 'FinTech',
-        required_funding: 10000,
-        timeline: '3 months',
+        category: '',
+        required_funding: 0,
+        timeline: '',
         document_name: '',
         pitch_video_url: '',
         startup_website_url: '',
@@ -1473,7 +1497,7 @@ function App() {
                     ) : (
                     <form onSubmit={onSubmitVerification} className="form-grid">
                       <div className="field-row field-row--two">
-                        <input placeholder="Phone number" value={verificationForm.phone_number} onChange={(e) => setVerificationForm({ ...verificationForm, phone_number: e.target.value })} required pattern="\d{11}" maxLength={11} title="Phone number must be exactly 11 digits" />
+                        <input placeholder="03XX_XXXXXXX" value={verificationForm.phone_number} onChange={(e) => { const d = e.target.value.replace(/\D/g, '').slice(0, 11); const f = d.length > 4 ? d.slice(0, 4) + '_' + d.slice(4) : d; setVerificationForm({ ...verificationForm, phone_number: f }) }} required maxLength={12} title="Phone number must be exactly 11 digits" />
                         <select value={verificationForm.identity_type} onChange={(e) => setVerificationForm({ ...verificationForm, identity_type: e.target.value as 'cnic' | 'passport' })}>
                           <option value="cnic">CNIC / National ID</option>
                           <option value="passport">Passport</option>
@@ -1629,14 +1653,6 @@ function App() {
                       ))}
                     </div>
                   </article>
-
-                  <article className="banner-card">
-                    <h3>Unlock Global Capital</h3>
-                    <p>Connect with verified institutional investors across the globe through the existing live proposal and chat workflows.</p>
-                    <button type="button" onClick={() => setPage('chat')}>
-                      Explore Network <ArrowRight size={16} />
-                    </button>
-                  </article>
                 </aside>
               </div>
             </section>
@@ -1786,7 +1802,7 @@ function App() {
                     <textarea placeholder="Pitch Description" value={proposalForm.description} onChange={(e) => setProposalForm({ ...proposalForm, description: e.target.value })} />
                     <div className="field-row field-row--two">
                       <input placeholder="Category" value={proposalForm.category} onChange={(e) => setProposalForm({ ...proposalForm, category: e.target.value })} required />
-                      <input type="number" placeholder="Required Funding" value={proposalForm.required_funding} onChange={(e) => setProposalForm({ ...proposalForm, required_funding: Number(e.target.value) })} required />
+                      <input type="number" placeholder="Required Funding" value={proposalForm.required_funding || ''} onChange={(e) => setProposalForm({ ...proposalForm, required_funding: Number(e.target.value) })} required />
                     </div>
                     <div className="field-row field-row--two">
                       <input placeholder="Timeline" value={proposalForm.timeline} onChange={(e) => setProposalForm({ ...proposalForm, timeline: e.target.value })} />
@@ -2649,6 +2665,11 @@ function App() {
               <p>{kycDetailTarget.email}</p>
             </div>
             <div className="kyc-detail-grid">
+              {kycDetailLoading && (
+                <div className="kyc-detail-full" style={{ textAlign: 'center', padding: '0.5rem 0', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+                  Loading latest data…
+                </div>
+              )}
               <div><span>Status</span><strong className={`status-pill ${statusTone(verificationStatus(kycDetailTarget))}`}>{verificationStatus(kycDetailTarget)}</strong></div>
               <div><span>Phone</span><strong>{kycDetailTarget.verification?.phone_number || 'N/A'}</strong></div>
               <div><span>Identity Type</span><strong>{kycDetailTarget.verification?.identity_type || 'N/A'}</strong></div>

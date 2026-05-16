@@ -82,7 +82,7 @@ class AdminUsersView(APIView):
 	def get(self, request):
 		if request.user.role != User.Roles.ADMIN:
 			return Response({"detail": "Forbidden"}, status=403)
-		users = User.objects.all().order_by("-date_joined")
+		users = User.objects.select_related('verification_profile').all().order_by("-date_joined")
 		return Response(
 			{
 				"data": UserSerializer(users, many=True, context={"request": request}).data,
@@ -95,6 +95,12 @@ class AdminUsersView(APIView):
 
 class AdminUserDetailView(APIView):
 	permission_classes = [permissions.IsAuthenticated]
+
+	def get(self, request, user_id: int):
+		if request.user.role != User.Roles.ADMIN:
+			return Response({"detail": "Forbidden"}, status=403)
+		target = get_object_or_404(User, pk=user_id)
+		return Response(UserSerializer(target, context={"request": request}).data)
 
 	def patch(self, request, user_id: int):
 		if request.user.role != User.Roles.ADMIN:

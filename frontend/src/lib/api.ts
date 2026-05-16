@@ -223,6 +223,11 @@ export async function getUsers() {
   return parseListEnvelope<User>(res.data).data
 }
 
+export async function getAdminUser(userId: number) {
+  const res = await api.get(`/auth/users/${userId}/`)
+  return res.data as User
+}
+
 export async function patchUserFlags(userId: number, payload: { verified?: boolean; frozen?: boolean }) {
   const res = await api.patch(`/auth/users/${userId}/`, payload)
   return res.data as User
