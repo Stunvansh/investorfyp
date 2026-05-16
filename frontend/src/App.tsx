@@ -448,6 +448,8 @@ function App() {
     }
   }
 
+  const isAdminRoute = window.location.pathname.toLowerCase().includes('/admin')
+
   useEffect(() => {
     checkHealth()
       .then(() => setApiStatus('online'))
@@ -472,6 +474,13 @@ function App() {
       .catch(() => {
         setUser(null)
       })
+  }, [])
+
+  useEffect(() => {
+    if (isAdminRoute && !localStorage.getItem('ventureledger_access_token')) {
+      setPage('auth')
+      setAuthMode('login')
+    }
   }, [])
 
   async function onAuthSubmit(event: FormEvent) {
@@ -1276,27 +1285,31 @@ function App() {
             <section className="auth-page">
               <article className="auth-card">
                 <div className="auth-card__header">
-                  <h2>{authMode === 'signup' ? 'Create Account' : 'Sign In'}</h2>
-                  <p>Choose your role and continue into the workspace.</p>
+                  <h2>{isAdminRoute ? 'Admin Login' : authMode === 'signup' ? 'Create Account' : 'Sign In'}</h2>
+                  <p>{isAdminRoute ? 'VentureLedger system administration access.' : 'Choose your role and continue into the workspace.'}</p>
                 </div>
 
-                <div className="segmented-control">
-                  <button type="button" className={authMode === 'signup' ? 'active' : ''} onClick={() => setAuthMode('signup')}>
-                    Create Account
-                  </button>
-                  <button type="button" className={authMode === 'login' ? 'active' : ''} onClick={() => setAuthMode('login')}>
-                    Sign In
-                  </button>
-                </div>
+                {!isAdminRoute && (
+                  <div className="segmented-control">
+                    <button type="button" className={authMode === 'signup' ? 'active' : ''} onClick={() => setAuthMode('signup')}>
+                      Create Account
+                    </button>
+                    <button type="button" className={authMode === 'login' ? 'active' : ''} onClick={() => setAuthMode('login')}>
+                      Sign In
+                    </button>
+                  </div>
+                )}
 
-                <div className="segmented-control segmented-control--roles">
-                  <button type="button" className={authRole === 'entrepreneur' ? 'active' : ''} onClick={() => setAuthRole('entrepreneur')}>
-                    Entrepreneur
-                  </button>
-                  <button type="button" className={authRole === 'investor' ? 'active' : ''} onClick={() => setAuthRole('investor')}>
-                    Investor
-                  </button>
-                </div>
+                {!isAdminRoute && (
+                  <div className="segmented-control segmented-control--roles">
+                    <button type="button" className={authRole === 'entrepreneur' ? 'active' : ''} onClick={() => setAuthRole('entrepreneur')}>
+                      Entrepreneur
+                    </button>
+                    <button type="button" className={authRole === 'investor' ? 'active' : ''} onClick={() => setAuthRole('investor')}>
+                      Investor
+                    </button>
+                  </div>
+                )}
 
                 {authMode === 'login' && (
                   <div className="demo-panel">
@@ -1305,39 +1318,44 @@ function App() {
                       <p>Auto-fill working credentials without changing any flow logic.</p>
                     </div>
                     <div className="demo-grid">
-                      <button
-                        type="button"
-                        className="demo-btn demo-btn--admin"
-                        onClick={() => setAuthForm({ ...authForm, email: 'admin@demo.local', password: 'DemoPass123!' })}
-                      >
-                        Admin Demo
-                      </button>
-                      <button
-                        type="button"
-                        className="demo-btn demo-btn--founder"
-                        onClick={() => {
-                          setAuthForm({ ...authForm, email: 'entrepreneur@demo.local', password: 'DemoPass123!' })
-                          setAuthRole('entrepreneur')
-                        }}
-                      >
-                        Entrepreneur Demo
-                      </button>
-                      <button
-                        type="button"
-                        className="demo-btn demo-btn--investor"
-                        onClick={() => {
-                          setAuthForm({ ...authForm, email: 'investor@demo.local', password: 'DemoPass123!' })
-                          setAuthRole('investor')
-                        }}
-                      >
-                        Investor Demo
-                      </button>
+                      {isAdminRoute ? (
+                        <button
+                          type="button"
+                          className="demo-btn demo-btn--admin"
+                          onClick={() => setAuthForm({ ...authForm, email: 'admin@demo.local', password: 'DemoPass123!' })}
+                        >
+                          Admin Demo
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            className="demo-btn demo-btn--founder"
+                            onClick={() => {
+                              setAuthForm({ ...authForm, email: 'entrepreneur@demo.local', password: 'DemoPass123!' })
+                              setAuthRole('entrepreneur')
+                            }}
+                          >
+                            Entrepreneur Demo
+                          </button>
+                          <button
+                            type="button"
+                            className="demo-btn demo-btn--investor"
+                            onClick={() => {
+                              setAuthForm({ ...authForm, email: 'investor@demo.local', password: 'DemoPass123!' })
+                              setAuthRole('investor')
+                            }}
+                          >
+                            Investor Demo
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
 
                 <form onSubmit={onAuthSubmit} className="auth-form">
-                  {authMode === 'signup' && (
+                  {authMode === 'signup' && !isAdminRoute && (
                     <div className="field-row field-row--two">
                       <input placeholder="First name" value={authForm.first_name} onChange={(e) => setAuthForm({ ...authForm, first_name: e.target.value })} />
                       <input placeholder="Last name" value={authForm.last_name} onChange={(e) => setAuthForm({ ...authForm, last_name: e.target.value })} />
@@ -1346,13 +1364,22 @@ function App() {
                   <input type="email" placeholder="Email" value={authForm.email} onChange={(e) => {
                     const email = e.target.value
                     setAuthForm({ ...authForm, email })
-                    const lower = email.toLowerCase()
-                    if (lower.includes('investor')) setAuthRole('investor')
-                    else if (lower.includes('entrepreneur') || lower.includes('founder')) setAuthRole('entrepreneur')
+                    if (!isAdminRoute) {
+                      const lower = email.toLowerCase()
+                      if (lower.includes('investor')) setAuthRole('investor')
+                      else if (lower.includes('entrepreneur') || lower.includes('founder')) setAuthRole('entrepreneur')
+                    }
                   }} required />
                   <input type="password" placeholder="Password" value={authForm.password} onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })} required />
                   <button type="submit" className="button-primary button-primary--full">Continue to Workspace</button>
                 </form>
+
+                <div style={{ textAlign: 'center', marginTop: '12px', fontSize: '0.8rem' }}>
+                  {isAdminRoute
+                    ? <a href="/web/" style={{ color: 'var(--primary)', opacity: 0.7, textDecoration: 'none' }}>← Back to User Login</a>
+                    : <a href="/web/admin/login" style={{ color: 'var(--primary)', opacity: 0.7, textDecoration: 'none' }}>System Admin? Login here →</a>
+                  }
+                </div>
               </article>
             </section>
           )}
