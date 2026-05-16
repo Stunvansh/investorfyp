@@ -1351,21 +1351,21 @@ function App() {
 
                 <form onSubmit={onAuthSubmit} className="auth-form">
                   {authMode === 'signup' && !isAdminRoute && (
-                    <>
-                      <div className="field-row field-row--two">
-                        <input placeholder="First name" value={authForm.first_name} onChange={(e) => setAuthForm({ ...authForm, first_name: e.target.value })} />
-                        <input placeholder="Last name" value={authForm.last_name} onChange={(e) => setAuthForm({ ...authForm, last_name: e.target.value })} />
-                      </div>
-                      <select
-                        value={authRole}
-                        onChange={(e) => setAuthRole(e.target.value as 'entrepreneur' | 'investor')}
-                        className="auth-input"
-                        required
-                      >
-                        <option value="entrepreneur">Entrepreneur</option>
-                        <option value="investor">Investor</option>
-                      </select>
-                    </>
+                    <div className="field-row field-row--two">
+                      <input placeholder="First name" value={authForm.first_name} onChange={(e) => setAuthForm({ ...authForm, first_name: e.target.value })} />
+                      <input placeholder="Last name" value={authForm.last_name} onChange={(e) => setAuthForm({ ...authForm, last_name: e.target.value })} />
+                    </div>
+                  )}
+                  {!isAdminRoute && (
+                    <select
+                      value={authRole}
+                      onChange={(e) => setAuthRole(e.target.value as 'entrepreneur' | 'investor')}
+                      className="auth-input"
+                      required
+                    >
+                      <option value="entrepreneur">Entrepreneur</option>
+                      <option value="investor">Investor</option>
+                    </select>
                   )}
                   <input type="email" placeholder="Email" value={authForm.email} onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })} required />
                   <input type="password" placeholder="Password" value={authForm.password} onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })} required />
