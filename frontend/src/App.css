@@ -411,6 +411,88 @@ label {
   border-color: rgba(176, 69, 66, 0.3);
 }
 
+.button-secondary--warning {
+  color: #b45309;
+  border-color: rgba(180, 83, 9, 0.3);
+}
+
+/* ── User action menu (contextual primary + ⋮ dropdown) ─────────────── */
+.user-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.action-menu {
+  position: relative;
+}
+
+.action-menu__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.action-menu__trigger:hover {
+  background: var(--surface-low);
+  color: var(--text);
+}
+
+.action-menu__dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 5px);
+  z-index: 300;
+  min-width: 168px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.14);
+  overflow: hidden;
+  padding: 0.3rem 0;
+}
+
+.action-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.58rem 0.95rem;
+  text-align: left;
+  background: transparent;
+  border: none;
+  font-size: 0.8rem;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.action-menu__item:hover {
+  background: var(--surface-low);
+}
+
+.action-menu__item--danger {
+  color: var(--danger);
+}
+
+.action-menu__item--danger:hover {
+  background: rgba(176, 69, 66, 0.07);
+}
+
+.action-menu__separator {
+  height: 1px;
+  background: var(--border);
+  margin: 0.3rem 0;
+}
+
 .api-pill,
 .status-pill,
 .counter-pill {

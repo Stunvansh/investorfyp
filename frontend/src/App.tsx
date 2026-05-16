@@ -19,6 +19,7 @@ import {
   LayoutDashboard,
   LogOut,
   MessageSquare,
+  MoreVertical,
   PlusCircle,
   RefreshCcw,
   Rocket,
@@ -163,6 +164,7 @@ function App() {
   const [investorProposalFilter, setInvestorProposalFilter] = useState<'all' | 'approved' | 'pending'>('all')
   const [adminUserFilter, setAdminUserFilter] = useState<'all' | 'active' | 'frozen'>('all')
   const [adminProposalFilter, setAdminProposalFilter] = useState<'all' | 'pending' | 'approved'>('all')
+  const [openActionMenu, setOpenActionMenu] = useState<number | null>(null)
   const [showAllTransactions, setShowAllTransactions] = useState(false)
   const [showKycModal, setShowKycModal] = useState(false)
   const [kycSubmitting, setKycSubmitting] = useState(false)
@@ -2280,17 +2282,65 @@ function App() {
                               <span>{entry.frozen ? 'Frozen' : entry.verified ? 'Verified' : 'Unverified'}</span>
                             </div>
                             <span>{formatDateTime(entry.date_joined)}</span>
-                            <div className="row-actions">
-                              <button type="button" className="button-secondary button-secondary--small" onClick={() => { setKycDetailTarget(entry); setShowKycDetailModal(true) }}>View KYC</button>
-                              <button type="button" className="button-secondary button-secondary--small" onClick={() => onToggleUserFlag(entry, 'verified')}>
-                                {entry.verified ? 'Unverify' : 'Verify'}
-                              </button>
-                              <button type="button" className="button-secondary button-secondary--small button-secondary--danger" onClick={() => onToggleUserFlag(entry, 'frozen')}>
-                                {entry.frozen ? 'Unfreeze' : 'Freeze'}
-                              </button>
-                              <button type="button" className="button-secondary button-secondary--small" onClick={() => onReviewVerification(entry, 'approved')}>Approve KYC</button>
-                              <button type="button" className="button-secondary button-secondary--small button-secondary--danger" onClick={() => onReviewVerification(entry, 'rejected')}>Reject KYC</button>
-                              <button type="button" className="button-secondary button-secondary--small button-secondary--danger" onClick={() => onDeleteUser(entry)}><Trash2 size={14} /> Delete</button>
+                            <div className="user-actions">
+                              {/* Contextual primary button based on KYC state */}
+                              {verificationStatus(entry) === 'submitted' ? (
+                                <button type="button" className="button-secondary button-secondary--small button-secondary--warning" onClick={() => { setKycDetailTarget(entry); setShowKycDetailModal(true) }}>
+                                  Review KYC
+                                </button>
+                              ) : entry.frozen ? (
+                                <button type="button" className="button-secondary button-secondary--small button-secondary--danger" onClick={() => onToggleUserFlag(entry, 'frozen')}>
+                                  Unfreeze
+                                </button>
+                              ) : (
+                                <button type="button" className="button-secondary button-secondary--small" onClick={() => { setKycDetailTarget(entry); setShowKycDetailModal(true) }}>
+                                  View KYC
+                                </button>
+                              )}
+                              {/* Three-dot dropdown for all other actions */}
+                              <div
+                                className="action-menu"
+                                tabIndex={-1}
+                                onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setOpenActionMenu(null) }}
+                              >
+                                <button
+                                  type="button"
+                                  className="action-menu__trigger"
+                                  onClick={(e) => { e.stopPropagation(); setOpenActionMenu(openActionMenu === entry.id ? null : entry.id) }}
+                                  title="More actions"
+                                >
+                                  <MoreVertical size={15} />
+                                </button>
+                                {openActionMenu === entry.id && (
+                                  <div className="action-menu__dropdown">
+                                    {verificationStatus(entry) !== 'submitted' && (
+                                      <button type="button" className="action-menu__item" onClick={() => { setKycDetailTarget(entry); setShowKycDetailModal(true); setOpenActionMenu(null) }}>
+                                        <Eye size={13} /> View KYC
+                                      </button>
+                                    )}
+                                    <button type="button" className="action-menu__item" onClick={() => { onToggleUserFlag(entry, 'verified'); setOpenActionMenu(null) }}>
+                                      <BadgeCheck size={13} /> {entry.verified ? 'Unverify' : 'Verify'}
+                                    </button>
+                                    <button type="button" className="action-menu__item" onClick={() => { onToggleUserFlag(entry, 'frozen'); setOpenActionMenu(null) }}>
+                                      <ShieldCheck size={13} /> {entry.frozen ? 'Unfreeze' : 'Freeze'}
+                                    </button>
+                                    {verificationStatus(entry) === 'submitted' && (
+                                      <>
+                                        <button type="button" className="action-menu__item" onClick={() => { onReviewVerification(entry, 'approved'); setOpenActionMenu(null) }}>
+                                          <BadgeCheck size={13} /> Approve KYC
+                                        </button>
+                                        <button type="button" className="action-menu__item action-menu__item--danger" onClick={() => { onReviewVerification(entry, 'rejected'); setOpenActionMenu(null) }}>
+                                          <XCircle size={13} /> Reject KYC
+                                        </button>
+                                      </>
+                                    )}
+                                    <div className="action-menu__separator" />
+                                    <button type="button" className="action-menu__item action-menu__item--danger" onClick={() => { onDeleteUser(entry); setOpenActionMenu(null) }}>
+                                      <Trash2 size={13} /> Delete
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                         ))}
