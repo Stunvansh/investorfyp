@@ -1337,7 +1337,7 @@ function App() {
                             type="button"
                             className="demo-btn demo-btn--investor"
                             onClick={() => {
-                              setAuthForm({ ...authForm, email: 'investor@demo.local', password: 'DemoPass123!' })
+                              setAuthForm({ ...authForm, email: 'investor@demo.local', password: 'Investor@123' })
                               setAuthRole('investor')
                             }}
                           >
