@@ -1353,6 +1353,28 @@ label {
   gap: 0.85rem;
 }
 
+/* ── Stripe card form ─────────────────────────────── */
+.stripe-elements-wrapper {
+  border: 1px solid var(--outline-soft);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 1.25rem 1rem;
+  margin-top: 0.5rem;
+}
+
+.stripe-elements-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin: 0 0 1rem;
+}
+
+.stripe-checkout-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
 .ledger-stack {
   display: grid;
   gap: 0.75rem;

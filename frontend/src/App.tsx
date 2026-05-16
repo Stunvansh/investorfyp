@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
+import { loadStripe } from '@stripe/stripe-js'
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import {
   AlertTriangle,
   ArrowRight,
@@ -154,6 +156,41 @@ function verificationStatus(user: User) {
   return user.verification?.status ?? (user.verified ? 'approved' : 'draft')
 }
 
+const STRIPE_PK = (import.meta.env.VITE_STRIPE_PUBLIC_KEY as string) || ''
+const stripePromise = STRIPE_PK ? loadStripe(STRIPE_PK) : null
+
+function StripeCheckoutForm({ onSuccess, onError }: { onSuccess: () => void; onError: (msg: string) => void }) {
+  const stripe = useStripe()
+  const elements = useElements()
+  const [paying, setPaying] = useState(false)
+
+  async function handlePay(e: FormEvent) {
+    e.preventDefault()
+    if (!stripe || !elements) return
+    setPaying(true)
+    const { error } = await stripe.confirmPayment({
+      elements,
+      redirect: 'if_required',
+      confirmParams: { return_url: window.location.href },
+    })
+    setPaying(false)
+    if (error) {
+      onError(error.message || 'Payment failed. Please try again.')
+    } else {
+      onSuccess()
+    }
+  }
+
+  return (
+    <form onSubmit={handlePay} className="stripe-checkout-form">
+      <PaymentElement />
+      <button type="submit" disabled={!stripe || paying} className="button-primary button-primary--full" style={{ marginTop: '1rem' }}>
+        {paying ? 'Processing…' : 'Confirm Payment'}
+      </button>
+    </form>
+  )
+}
+
 function App() {
   const isAdminRoute = window.location.pathname.toLowerCase().includes('/admin')
   const [apiStatus, setApiStatus] = useState<'checking' | 'online' | 'offline'>('checking')
@@ -251,6 +288,7 @@ function App() {
   })
 
   const [pendingIntentId, setPendingIntentId] = useState('')
+  const [stripeClientSecret, setStripeClientSecret] = useState('')
   const [navOpen, setNavOpen] = useState(false)
 
   const investorRequests = useMemo(() => {
@@ -572,6 +610,8 @@ function App() {
     sessionStorage.removeItem('kyc_approved_seen')
     setShowKycApprovedBanner(false)
     setUser(null)
+    setPendingIntentId('')
+    setStripeClientSecret('')
     setUsers([])
     setProposals([])
     setSignals([])
@@ -795,7 +835,8 @@ function App() {
       if (walletForm.method === 'stripe') {
         const intent = await createPaymentIntent({ proposal: walletForm.proposal, amount: walletForm.amount })
         setPendingIntentId(intent.intent_id)
-        setStatusText(`Stripe intent created: ${intent.intent_id}. Complete confirmation on your Stripe-enabled client.`)
+        setStripeClientSecret(intent.client_secret)
+        setStatusText('Enter your card details below to complete the payment.')
       } else {
         await createTransaction({
           proposal: walletForm.proposal,
@@ -2051,10 +2092,39 @@ function App() {
                       </label>
 
                       <button type="submit" className="button-primary button-primary--full">
-                        <Wallet size={16} /> {walletForm.method === 'stripe' ? 'Create Stripe Intent' : 'Fund Escrow'}
+                        <Wallet size={16} /> {walletForm.method === 'stripe' ? 'Pay with Card' : 'Fund Escrow'}
                       </button>
 
-                      {pendingIntentId && (
+                      {stripeClientSecret && (
+                        <div className="stripe-elements-wrapper">
+                          <p className="stripe-elements-label">💳 Enter card details to complete your investment</p>
+                          {STRIPE_PK ? (
+                            <Elements
+                              stripe={stripePromise}
+                              options={{
+                                clientSecret: stripeClientSecret,
+                                appearance: { theme: 'stripe', variables: { colorPrimary: '#6366f1', borderRadius: '8px' } },
+                              }}
+                            >
+                              <StripeCheckoutForm
+                                onSuccess={async () => {
+                                  setStripeClientSecret('')
+                                  setPendingIntentId('')
+                                  if (user) await refreshAll(user)
+                                  setStatusText('✅ Payment successful! Your investment has been recorded.')
+                                }}
+                                onError={(msg) => setStatusText(`❌ ${msg}`)}
+                              />
+                            </Elements>
+                          ) : (
+                            <p className="field-hint" style={{ color: 'var(--danger)', fontSize: '0.875rem' }}>
+                              ⚠️ Stripe is not configured. Add VITE_STRIPE_PUBLIC_KEY to the frontend .env file.
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {pendingIntentId && !stripeClientSecret && (
                         <div className="intent-box">
                           <span>Pending intent: {pendingIntentId}</span>
                           <button type="button" className="button-secondary button-secondary--small" onClick={onCheckIntentStatus}>
