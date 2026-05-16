@@ -4,6 +4,7 @@ import { parseListEnvelope } from './apiResponseParser'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api'
 const TOKEN_KEY = 'ventureledger_access_token'
+const REFRESH_KEY = 'ventureledger_refresh_token'
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -17,6 +18,33 @@ api.interceptors.request.use((config) => {
   }
   return config
 })
+
+// Auto-refresh access token on 401
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const original = error.config as typeof error.config & { _retry?: boolean }
+    if (error.response?.status === 401 && !original._retry) {
+      original._retry = true
+      const refresh = localStorage.getItem(REFRESH_KEY)
+      if (refresh) {
+        try {
+          const res = await axios.post(`${API_BASE}/auth/token/refresh/`, { refresh })
+          const newAccess: string = res.data.access
+          localStorage.setItem(TOKEN_KEY, newAccess)
+          original.headers = { ...original.headers, Authorization: `Bearer ${newAccess}` }
+          return api(original)
+        } catch {
+          localStorage.removeItem(TOKEN_KEY)
+          localStorage.removeItem(REFRESH_KEY)
+        }
+      } else {
+        localStorage.removeItem(TOKEN_KEY)
+      }
+    }
+    return Promise.reject(error)
+  },
+)
 
 export type Role = 'entrepreneur' | 'investor' | 'admin'
 
@@ -149,8 +177,14 @@ export function saveToken(token: string) {
   localStorage.setItem(TOKEN_KEY, token)
 }
 
+export function saveTokens(access: string, refresh: string) {
+  localStorage.setItem(TOKEN_KEY, access)
+  localStorage.setItem(REFRESH_KEY, refresh)
+}
+
 export function clearToken() {
   localStorage.removeItem(TOKEN_KEY)
+  localStorage.removeItem(REFRESH_KEY)
 }
 
 export async function checkHealth() {

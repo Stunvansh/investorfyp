@@ -65,7 +65,7 @@ import {
   patchUserFlags,
   register,
   reviewUserVerification,
-  saveToken,
+  saveTokens,
   sendMessage,
   updateProposalMilestone,
   updateSignalStatus,
@@ -485,7 +485,7 @@ function App() {
       }
 
       const token = await login({ email: authForm.email, password: authForm.password })
-      saveToken(token.access)
+      saveTokens(token.access, token.refresh)
       const me = await getMe()
       setUser(me)
       hydrateVerificationForm(me.verification)
@@ -500,9 +500,16 @@ function App() {
       } else {
         setPage(me.role === 'admin' ? 'admin' : 'dashboard')
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(error)
-      setStatusText('Authentication failed. Please verify credentials.')
+      const axiosErr = error as { response?: { data?: Record<string, unknown> } }
+      const data = axiosErr?.response?.data
+      if (data && typeof data === 'object') {
+        const msgs = Object.values(data).flat().join(' ')
+        setStatusText(msgs || 'Authentication failed. Please verify credentials.')
+      } else {
+        setStatusText('Authentication failed. Please verify credentials.')
+      }
     }
   }
 
@@ -882,8 +889,10 @@ function App() {
       await deleteUser(target.id)
       if (user) await refreshAll(user)
       setStatusText('User deleted.')
-    } catch {
-      setStatusText('Failed to delete user. Check linked records or permissions.')
+    } catch (error: unknown) {
+      const axiosErr = error as { response?: { data?: { detail?: string } } }
+      const msg = axiosErr?.response?.data?.detail || 'Failed to delete user. Check linked records or permissions.'
+      setStatusText(msg)
     }
   }
 
@@ -923,8 +932,11 @@ function App() {
       setSelectedProposalId(null)
       if (user) await refreshAll(user)
       setStatusText('Proposal deleted.')
-    } catch {
-      setStatusText('Unable to delete proposal. It may already have investment/payment activity.')
+    } catch (error: unknown) {
+      const axiosErr = error as { response?: { data?: { detail?: string; non_field_errors?: string[] } } }
+      const detail = axiosErr?.response?.data?.detail
+      const nonField = axiosErr?.response?.data?.non_field_errors?.[0]
+      setStatusText(detail || nonField || 'Unable to delete proposal. It may already have investment/payment activity.')
     }
   }
 
@@ -1292,16 +1304,7 @@ function App() {
                   </div>
                 )}
 
-                {!isAdminRoute && (
-                  <div className="segmented-control segmented-control--roles">
-                    <button type="button" className={authRole === 'entrepreneur' ? 'active' : ''} onClick={() => setAuthRole('entrepreneur')}>
-                      Entrepreneur
-                    </button>
-                    <button type="button" className={authRole === 'investor' ? 'active' : ''} onClick={() => setAuthRole('investor')}>
-                      Investor
-                    </button>
-                  </div>
-                )}
+
 
                 {authMode === 'login' && (
                   <div className="demo-panel">
@@ -1348,20 +1351,23 @@ function App() {
 
                 <form onSubmit={onAuthSubmit} className="auth-form">
                   {authMode === 'signup' && !isAdminRoute && (
-                    <div className="field-row field-row--two">
-                      <input placeholder="First name" value={authForm.first_name} onChange={(e) => setAuthForm({ ...authForm, first_name: e.target.value })} />
-                      <input placeholder="Last name" value={authForm.last_name} onChange={(e) => setAuthForm({ ...authForm, last_name: e.target.value })} />
-                    </div>
+                    <>
+                      <div className="field-row field-row--two">
+                        <input placeholder="First name" value={authForm.first_name} onChange={(e) => setAuthForm({ ...authForm, first_name: e.target.value })} />
+                        <input placeholder="Last name" value={authForm.last_name} onChange={(e) => setAuthForm({ ...authForm, last_name: e.target.value })} />
+                      </div>
+                      <select
+                        value={authRole}
+                        onChange={(e) => setAuthRole(e.target.value as 'entrepreneur' | 'investor')}
+                        className="auth-input"
+                        required
+                      >
+                        <option value="entrepreneur">Entrepreneur</option>
+                        <option value="investor">Investor</option>
+                      </select>
+                    </>
                   )}
-                  <input type="email" placeholder="Email" value={authForm.email} onChange={(e) => {
-                    const email = e.target.value
-                    setAuthForm({ ...authForm, email })
-                    if (!isAdminRoute) {
-                      const lower = email.toLowerCase()
-                      if (lower.includes('investor')) setAuthRole('investor')
-                      else if (lower.includes('entrepreneur') || lower.includes('founder')) setAuthRole('entrepreneur')
-                    }
-                  }} required />
+                  <input type="email" placeholder="Email" value={authForm.email} onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })} required />
                   <input type="password" placeholder="Password" value={authForm.password} onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })} required />
                   <button type="submit" className="button-primary button-primary--full">Continue to Workspace</button>
                 </form>
