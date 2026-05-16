@@ -153,8 +153,9 @@ function verificationStatus(user: User) {
 }
 
 function App() {
+  const isAdminRoute = window.location.pathname.toLowerCase().includes('/admin')
   const [apiStatus, setApiStatus] = useState<'checking' | 'online' | 'offline'>('checking')
-  const [page, setPage] = useState<Page>('landing')
+  const [page, setPage] = useState<Page>(isAdminRoute ? 'auth' : 'landing')
   const [adminView, setAdminView] = useState<'users' | 'proposals' | 'escrow' | 'logs'>('users')
   const [authMode, setAuthMode] = useState<'signup' | 'login'>('login')
   const [authRole, setAuthRole] = useState<'entrepreneur' | 'investor'>('entrepreneur')
@@ -448,8 +449,6 @@ function App() {
     }
   }
 
-  const isAdminRoute = window.location.pathname.toLowerCase().includes('/admin')
-
   useEffect(() => {
     checkHealth()
       .then(() => setApiStatus('online'))
@@ -474,13 +473,6 @@ function App() {
       .catch(() => {
         setUser(null)
       })
-  }, [])
-
-  useEffect(() => {
-    if (isAdminRoute && !localStorage.getItem('ventureledger_access_token')) {
-      setPage('auth')
-      setAuthMode('login')
-    }
   }, [])
 
   async function onAuthSubmit(event: FormEvent) {
