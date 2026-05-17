@@ -525,6 +525,30 @@ function App() {
           setShowKycApprovedBanner(true)
           sessionStorage.setItem('kyc_approved_seen', '1')
         }
+
+        // ── Handle Stripe redirect-return (3DS / bank-auth) ──────────────
+        // After confirmPayment redirects away and back, Stripe appends
+        // ?payment_intent=pi_xxx&redirect_status=succeeded to the URL.
+        const params = new URLSearchParams(window.location.search)
+        const redirectStatus = params.get('redirect_status')
+        const paymentIntentId = params.get('payment_intent')
+        if (redirectStatus && paymentIntentId) {
+          // Strip the Stripe params so they don't persist in the URL
+          window.history.replaceState({}, '', window.location.pathname)
+          if (redirectStatus === 'succeeded') {
+            // Sync backend: mark attempt succeeded + create WalletTransaction
+            getPaymentStatus(paymentIntentId)
+              .catch(() => {/* non-fatal */})
+              .finally(() => {
+                refreshAll(me)
+                setPage('wallet')
+                setStatusText('✅ Payment successful! Your investment has been recorded.')
+              })
+          } else {
+            setStatusText(`❌ Payment ${redirectStatus}. Please try again from the Invest tab.`)
+          }
+        }
+        // ─────────────────────────────────────────────────────────────────
       })
       .catch(() => {
         setUser(null)
