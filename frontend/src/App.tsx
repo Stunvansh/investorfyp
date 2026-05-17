@@ -300,6 +300,13 @@ function App() {
     return signals.filter((signal) => signal.status === 'pending')
   }, [signals, user])
 
+  // Accepted signals that don't have a ChatRoom yet (first-contact conversations)
+  // Shown in the Chat sidebar so either party can initiate the first message
+  const acceptedSignalsWithoutRoom = useMemo(() => {
+    const chatProposalIds = new Set(chats.map((c) => c.proposal))
+    return signals.filter((s) => s.status === 'accepted' && !chatProposalIds.has(s.proposal))
+  }, [signals, chats])
+
   const selectedProposal = useMemo(
     () => proposals.find((proposal) => proposal.id === selectedProposalId) ?? null,
     [proposals, selectedProposalId],
@@ -2241,7 +2248,23 @@ function App() {
                     </div>
                   </div>
                   <div className="chat-list">
-                    {visibleChats.length === 0 && <div className="empty-state">No conversations match the current search.</div>}
+                    {visibleChats.length === 0 && acceptedSignalsWithoutRoom.length === 0 && (
+                      <div className="empty-state">No conversations yet. Accept an investor signal to start chatting.</div>
+                    )}
+                    {/* Accepted signals with no ChatRoom yet — either party can start the first message */}
+                    {acceptedSignalsWithoutRoom.map((signal) => {
+                      const title = proposals.find((p) => p.id === signal.proposal)?.title ?? `Proposal #${signal.proposal}`
+                      return (
+                        <button type="button" key={`sig-${signal.id}`} className={`chat-list__item ${selectedProposalId === signal.proposal ? 'active' : ''}`} onClick={() => openChat(signal.proposal)}>
+                          <div className="avatar-circle avatar-circle--soft">{initials(title)}</div>
+                          <div>
+                            <strong>{title}</strong>
+                            <p>Start the conversation…</p>
+                          </div>
+                          <span className="status-pill tone-success">New</span>
+                        </button>
+                      )
+                    })}
                     {visibleChats.map((chat) => (
                       <button type="button" key={chat.id} className={`chat-list__item ${selectedProposalId === chat.proposal ? 'active' : ''}`} onClick={() => openChat(chat.proposal)}>
                         <div className="avatar-circle avatar-circle--soft">{initials(chat.proposal_title)}</div>
