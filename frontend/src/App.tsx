@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
@@ -123,6 +123,31 @@ function compactText(value: string | null | undefined) {
     .trim()
 }
 
+/**
+ * Extracts a human-readable error message from an Axios/fetch error.
+ * Handles Django DRF formats: { detail }, { non_field_errors }, { field: [msgs] }
+ */
+function extractApiError(error: unknown, fallback = 'Something went wrong. Please try again.'): string {
+  if (!error || typeof error !== 'object') return fallback
+  const e = error as { response?: { data?: unknown }; message?: string }
+  const data = e.response?.data
+  if (!data) return fallback
+  if (typeof data === 'string' && data.length < 300) return data
+  if (typeof data === 'object') {
+    const obj = data as Record<string, unknown>
+    if (typeof obj.detail === 'string') return obj.detail
+    const msgs: string[] = []
+    for (const [key, val] of Object.entries(obj)) {
+      const values = Array.isArray(val) ? val : [String(val)]
+      for (const v of values) {
+        msgs.push(key === 'non_field_errors' ? String(v) : `${key}: ${String(v)}`)
+      }
+    }
+    if (msgs.length) return msgs.join(' • ')
+  }
+  return fallback
+}
+
 function formatDateTime(value: string | null | undefined) {
   if (!value) return 'N/A'
   const date = new Date(value)
@@ -241,7 +266,35 @@ function App() {
   const [unreadTotal, setUnreadTotal] = useState(0)
 
   const [messageDraft, setMessageDraft] = useState('')
-  const [statusText, setStatusText] = useState('')
+
+  // ── Toast notification system ─────────────────────────────────────────────
+  type Toast = { id: number; msg: string; kind: 'success' | 'error' | 'info' }
+  const [toasts, setToasts] = useState<Toast[]>([])
+  const toastIdRef = useRef(0)
+
+  function toast(msg: string, kind: Toast['kind'] = 'info') {
+    if (!msg) return
+    const id = ++toastIdRef.current
+    setToasts((prev) => [...prev, { id, msg, kind }])
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), kind === 'error' ? 7000 : 4500)
+  }
+
+  function dismissToast(id: number) {
+    setToasts((prev) => prev.filter((t) => t.id !== id))
+  }
+
+  // Smart status wrapper — routes to toast with auto-detected tone
+  function setStatusText(msg: string) {
+    if (!msg) return
+    if (/^✅|\b(updated|submitted|approved|completed|sent|downloaded|deleted|successful|accepted|rejected successfully|held in escrow)\b/i.test(msg)) {
+      toast(msg, 'success')
+    } else if (/^❌|\b(failed|unable|could not|invalid|must be|error|please select|please accept|interest can only|not active)\b/i.test(msg)) {
+      toast(msg, 'error')
+    } else {
+      toast(msg, 'info')
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────
 
   const [authForm, setAuthForm] = useState({
     first_name: '',
@@ -587,16 +640,8 @@ function App() {
       } else {
         setPage(me.role === 'admin' ? 'admin' : 'dashboard')
       }
-    } catch (error: unknown) {
-      console.error(error)
-      const axiosErr = error as { response?: { data?: Record<string, unknown> } }
-      const data = axiosErr?.response?.data
-      if (data && typeof data === 'object') {
-        const msgs = Object.values(data).flat().join(' ')
-        setStatusText(msgs || 'Authentication failed. Please verify credentials.')
-      } else {
-        setStatusText('Authentication failed. Please verify credentials.')
-      }
+    } catch (err: unknown) {
+      toast(extractApiError(err, 'Authentication failed. Please verify credentials.'), 'error')
     }
   }
 
@@ -630,9 +675,8 @@ function App() {
       const verification = await patchVerification(data)
       setUser({ ...user, verification, verified: verification.status === 'approved' })
       setStatusText('KYC submitted for admin review. You can update details anytime from Settings.')
-    } catch (error) {
-      console.error(error)
-      setStatusText('KYC save failed. You can complete it later from Settings.')
+    } catch (err) {
+      toast(extractApiError(err, 'KYC save failed. You can complete it later from Settings.'), 'error')
     } finally {
       setKycSubmitting(false)
       setShowKycModal(false)
@@ -743,8 +787,8 @@ function App() {
       })
       setUser(updated)
       setStatusText('Profile updated.')
-    } catch {
-      setStatusText('Failed to update profile.')
+    } catch (err) {
+      toast(extractApiError(err, 'Failed to update profile.'), 'error')
     }
   }
 
@@ -778,9 +822,8 @@ function App() {
       const verification = await patchVerification(data)
       setUser({ ...user, verification, verified: verification.status === 'approved' })
       setStatusText('Verification submitted to admin for review.')
-    } catch (error) {
-      console.error(error)
-      setStatusText('Failed to submit verification details.')
+    } catch (err) {
+      toast(extractApiError(err, 'Failed to submit verification details.'), 'error')
     }
   }
 
@@ -814,8 +857,8 @@ function App() {
       })
       setProposalDocumentFile(null)
       setProposalFormKey((k) => k + 1)
-    } catch {
-      setStatusText('Failed to submit proposal.')
+    } catch (err) {
+      toast(extractApiError(err, 'Failed to submit proposal.'), 'error')
     } finally {
       setProposalSubmitting(false)
     }
@@ -831,8 +874,8 @@ function App() {
       await createSignal({ proposal: proposalId, signal_type: 'interest', message: 'Interested in discussing this opportunity.' })
       if (user) await refreshAll(user)
       setStatusText('✅ Interest signal sent successfully.')
-    } catch {
-      setStatusText('Could not send interest signal. It may already exist or the proposal is not active.')
+    } catch (err) {
+      toast(extractApiError(err, 'Could not send interest signal. It may already exist or the proposal is not active.'), 'error')
     }
   }
 
@@ -841,8 +884,8 @@ function App() {
       await updateSignalStatus(signalId, decision)
       if (user) await refreshAll(user)
       setStatusText(`Signal ${decision}.`)
-    } catch {
-      setStatusText('Failed to update investor request.')
+    } catch (err) {
+      toast(extractApiError(err, 'Failed to update investor request.'), 'error')
     }
   }
 
@@ -884,21 +927,9 @@ function App() {
         setStatusText('Agreement accepted and funds held in escrow successfully.')
       }
     } catch (err: unknown) {
-      let msg = 'Investment request failed.'
-      if (err && typeof err === 'object' && 'response' in err) {
-        const resp = (err as { response?: { data?: unknown } }).response
-        if (resp?.data) {
-          const d = resp.data as Record<string, unknown>
-          if (d.detail) msg = String(d.detail)
-          else if (d.non_field_errors) msg = String((d.non_field_errors as string[])[0])
-          else msg = JSON.stringify(d)
-        }
-      } else if (err instanceof Error) {
-        msg = err.message
-      }
       setStripeClientSecret('')
       setPendingIntentId('')
-      setStatusText(`❌ ${msg}`)
+      toast(extractApiError(err, 'Investment request failed.'), 'error')
     }
   }
 
@@ -908,8 +939,8 @@ function App() {
       const res = await getPaymentStatus(pendingIntentId)
       setStatusText(`Intent ${res.intent_id} status: ${res.status}`)
       if (user) await refreshAll(user)
-    } catch {
-      setStatusText('Could not fetch payment status.')
+    } catch (err) {
+      toast(extractApiError(err, 'Could not fetch payment status.'), 'error')
     }
   }
 
@@ -924,8 +955,8 @@ function App() {
       })
       if (user) await refreshAll(user)
       setStatusText(`Settlement action '${action}' completed.`)
-    } catch {
-      setStatusText('Settlement action failed.')
+    } catch (err) {
+      toast(extractApiError(err, 'Settlement action failed.'), 'error')
     }
   }
 
@@ -939,8 +970,8 @@ function App() {
         await markMessageAsRead(message.id)
       }
       if (user) await refreshAll(user)
-    } catch {
-      setStatusText('Failed to load messages.')
+    } catch (err) {
+      toast(extractApiError(err, 'Failed to load messages.'), 'error')
     }
   }
 
@@ -954,8 +985,8 @@ function App() {
       const msgs = await getMessages(selectedProposalId)
       setMessages(msgs)
       if (user) await refreshAll(user)
-    } catch {
-      setStatusText('Unable to send message.')
+    } catch (err) {
+      toast(extractApiError(err, 'Unable to send message.'), 'error')
     }
   }
 
@@ -963,8 +994,8 @@ function App() {
     try {
       await patchUserFlags(target.id, { [field]: !target[field] })
       if (user) await refreshAll(user)
-    } catch {
-      setStatusText('Failed to update user flags.')
+    } catch (err) {
+      toast(extractApiError(err, 'Failed to update user flags.'), 'error')
     }
   }
 
@@ -979,8 +1010,8 @@ function App() {
       await reviewUserVerification(target.id, { status: decision, admin_message: 'Your KYC has been approved. You can now submit proposals and access all platform features.' })
       if (user) await refreshAll(user)
       setStatusText(`✅ KYC approved for ${target.email}.`)
-    } catch {
-      setStatusText('Failed to review verification.')
+    } catch (err) {
+      toast(extractApiError(err, 'Failed to review verification.'), 'error')
     }
   }
 
@@ -990,8 +1021,8 @@ function App() {
       await reviewUserVerification(kycRejectionTarget.id, { status: 'rejected', admin_message: rejectionMessage })
       if (user) await refreshAll(user)
       setStatusText(`KYC rejected for ${kycRejectionTarget.email}. Message sent.`)
-    } catch {
-      setStatusText('Failed to reject verification.')
+    } catch (err) {
+      toast(extractApiError(err, 'Failed to reject verification.'), 'error')
     } finally {
       setShowRejectionModal(false)
       setKycRejectionTarget(null)
@@ -1005,10 +1036,8 @@ function App() {
       await deleteUser(target.id)
       if (user) await refreshAll(user)
       setStatusText('User deleted.')
-    } catch (error: unknown) {
-      const axiosErr = error as { response?: { data?: { detail?: string } } }
-      const msg = axiosErr?.response?.data?.detail || 'Failed to delete user. Check linked records or permissions.'
-      setStatusText(msg)
+    } catch (err: unknown) {
+      toast(extractApiError(err, 'Failed to delete user. Check linked records or permissions.'), 'error')
     }
   }
 
@@ -1016,8 +1045,8 @@ function App() {
     try {
       await approveProposal(proposalId)
       if (user) await refreshAll(user)
-    } catch {
-      setStatusText('Unable to approve proposal.')
+    } catch (err) {
+      toast(extractApiError(err, 'Unable to approve proposal.'), 'error')
     }
   }
 
@@ -1025,8 +1054,8 @@ function App() {
     try {
       await patchProposal(proposalId, { status: 'pending' })
       if (user) await refreshAll(user)
-    } catch {
-      setStatusText('Unable to mark proposal pending.')
+    } catch (err) {
+      toast(extractApiError(err, 'Unable to mark proposal pending.'), 'error')
     }
   }
 
@@ -1036,8 +1065,8 @@ function App() {
       await patchProposal(proposalId, { status: 'rejected', admin_message: message })
       if (user) await refreshAll(user)
       setStatusText('Proposal rejected with admin message.')
-    } catch {
-      setStatusText('Unable to reject proposal.')
+    } catch (err) {
+      toast(extractApiError(err, 'Unable to reject proposal.'), 'error')
     }
   }
 
@@ -1048,11 +1077,8 @@ function App() {
       setSelectedProposalId(null)
       if (user) await refreshAll(user)
       setStatusText('Proposal deleted.')
-    } catch (error: unknown) {
-      const axiosErr = error as { response?: { data?: { detail?: string; non_field_errors?: string[] } } }
-      const detail = axiosErr?.response?.data?.detail
-      const nonField = axiosErr?.response?.data?.non_field_errors?.[0]
-      setStatusText(detail || nonField || 'Unable to delete proposal. It may already have investment/payment activity.')
+    } catch (err: unknown) {
+      toast(extractApiError(err, 'Unable to delete proposal. It may already have investment/payment activity.'), 'error')
     }
   }
 
@@ -1060,8 +1086,8 @@ function App() {
     if (!url) return
     try {
       await downloadProtectedFile(url, filename)
-    } catch {
-      setStatusText('Unable to download protected file. Please refresh and try again.')
+    } catch (err) {
+      toast(extractApiError(err, 'Unable to download protected file. Please refresh and try again.'), 'error')
     }
   }
 
@@ -1069,8 +1095,8 @@ function App() {
     try {
       await updateProposalMilestone(proposalId, milestone)
       if (user) await refreshAll(user)
-    } catch {
-      setStatusText('Failed to update milestone.')
+    } catch (err) {
+      toast(extractApiError(err, 'Failed to update milestone.'), 'error')
     }
   }
 
@@ -1238,8 +1264,6 @@ function App() {
             </>
           )}
         </header>
-
-        {statusText && <div className="status-banner">{statusText}</div>}
 
         <main className="main-content">
           {page === 'landing' && (
@@ -3026,6 +3050,16 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* ── Corner toast notifications ──────────────────────────── */}
+      <div className="toast-container" aria-live="polite" aria-atomic="false">
+        {toasts.map((t) => (
+          <div key={t.id} className={`toast toast--${t.kind}`} role="alert">
+            <span className="toast__msg">{t.msg}</span>
+            <button type="button" className="toast__close" onClick={() => dismissToast(t.id)} aria-label="Dismiss">×</button>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
