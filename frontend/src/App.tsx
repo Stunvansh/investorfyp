@@ -177,7 +177,11 @@ function StripeCheckoutForm({ onSuccess, onError }: { onSuccess: () => void; onE
     if (error) {
       onError(error.message || 'Payment failed. Please try again.')
     } else {
-      onSuccess()
+      try {
+        await onSuccess()
+      } catch {
+        onError('Payment succeeded but the dashboard failed to refresh. Please reload the page.')
+      }
     }
   }
 
@@ -848,8 +852,22 @@ function App() {
         if (user) await refreshAll(user)
         setStatusText('Agreement accepted and funds held in escrow successfully.')
       }
-    } catch {
-      setStatusText('Investment request failed.')
+    } catch (err: unknown) {
+      let msg = 'Investment request failed.'
+      if (err && typeof err === 'object' && 'response' in err) {
+        const resp = (err as { response?: { data?: unknown } }).response
+        if (resp?.data) {
+          const d = resp.data as Record<string, unknown>
+          if (d.detail) msg = String(d.detail)
+          else if (d.non_field_errors) msg = String((d.non_field_errors as string[])[0])
+          else msg = JSON.stringify(d)
+        }
+      } else if (err instanceof Error) {
+        msg = err.message
+      }
+      setStripeClientSecret('')
+      setPendingIntentId('')
+      setStatusText(`❌ ${msg}`)
     }
   }
 
@@ -2108,6 +2126,12 @@ function App() {
                             >
                               <StripeCheckoutForm
                                 onSuccess={async () => {
+                                  // Tell the backend the payment succeeded so it creates the WalletTransaction
+                                  try {
+                                    await getPaymentStatus(pendingIntentId)
+                                  } catch {
+                                    /* non-fatal – webhook may have already synced it */
+                                  }
                                   setStripeClientSecret('')
                                   setPendingIntentId('')
                                   if (user) await refreshAll(user)
