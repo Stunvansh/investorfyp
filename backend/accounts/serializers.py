@@ -65,6 +65,11 @@ class RegisterSerializer(serializers.ModelSerializer):
         model = User
         fields = ["id", "email", "password", "first_name", "last_name", "role"]
 
+    def validate_email(self, value):
+        if User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("An account with this email already exists. Please log in instead.")
+        return value
+
     def validate_role(self, value):
         if value == User.Roles.ADMIN:
             raise serializers.ValidationError("Admin role cannot be self-assigned.")

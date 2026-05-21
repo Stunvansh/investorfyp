@@ -1,3 +1,5 @@
+import resend
+
 from django.utils import timezone
 from django.http import FileResponse
 from rest_framework import generics, permissions, status
@@ -8,6 +10,9 @@ from rest_framework.views import APIView
 from rest_framework.exceptions import ValidationError
 
 from .models import EmailVerificationCode, EntrepreneurVerification, User
+
+RESEND_API_KEY = "re_VvQD61sW_LaziW8rLqEvC5SXo3E3aiCZc"
+RESEND_FROM = "VentureLedger <onboarding@resend.dev>"
 from .serializers import (
 	AdminVerificationReviewSerializer,
 	EntrepreneurVerificationSerializer,
@@ -24,6 +29,49 @@ class RegisterView(generics.CreateAPIView):
 	queryset = User.objects.all()
 	serializer_class = RegisterSerializer
 	permission_classes = [permissions.AllowAny]
+
+	def create(self, request, *args, **kwargs):
+		# Save raw password before hashing so we can include in welcome email
+		raw_password = request.data.get("password", "")
+		response = super().create(request, *args, **kwargs)
+		# Send welcome email
+		email = request.data.get("email", "")
+		first_name = request.data.get("first_name", "") or "there"
+		role = request.data.get("role", "investor").capitalize()
+		if email:
+			try:
+				resend.api_key = RESEND_API_KEY
+				resend.Emails.send({
+					"from": RESEND_FROM,
+					"to": [email],
+					"subject": "Welcome to VentureLedger! 🎉",
+					"html": f"""
+					<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb">
+					  <div style="background:linear-gradient(135deg,#1d4ed8,#7c3aed);padding:32px 24px;text-align:center">
+						<h1 style="color:#ffffff;margin:0;font-size:26px;font-weight:700;letter-spacing:-0.5px">VentureLedger</h1>
+						<p style="color:rgba(255,255,255,0.8);margin:6px 0 0;font-size:14px">Your investment platform</p>
+					  </div>
+					  <div style="padding:32px 28px">
+						<h2 style="margin:0 0 8px;color:#111827;font-size:20px">Welcome, {first_name}! 👋</h2>
+						<p style="color:#6b7280;margin:0 0 24px;font-size:15px">Your <strong>{role}</strong> account has been created. Here are your login credentials:</p>
+						<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:20px;margin-bottom:24px">
+						  <table style="width:100%;border-collapse:collapse">
+							<tr><td style="padding:6px 0;color:#6b7280;font-size:14px;width:90px">Email</td><td style="padding:6px 0;color:#111827;font-weight:600;font-size:14px">{email}</td></tr>
+							<tr><td style="padding:6px 0;color:#6b7280;font-size:14px">Password</td><td style="padding:6px 0;color:#111827;font-weight:600;font-size:14px;font-family:monospace">{raw_password}</td></tr>
+							<tr><td style="padding:6px 0;color:#6b7280;font-size:14px">Role</td><td style="padding:6px 0;color:#111827;font-weight:600;font-size:14px">{role}</td></tr>
+						  </table>
+						</div>
+						<p style="color:#6b7280;font-size:13px;margin:0">Next step: verify your email address with the OTP code, then complete your KYC profile to access the platform.</p>
+					  </div>
+					  <div style="background:#f9fafb;padding:16px 28px;border-top:1px solid #e5e7eb;text-align:center">
+						<p style="color:#9ca3af;font-size:12px;margin:0">&copy; 2025 VentureLedger. All rights reserved.</p>
+					  </div>
+					</div>
+					""",
+				})
+			except Exception:
+				pass  # Welcome email is best-effort; don't fail registration
+		return response
 
 
 class MeView(APIView):
@@ -225,7 +273,6 @@ class RequestEmailCodeView(APIView):
 
 	def post(self, request):
 		import random
-		from django.conf import settings
 
 		code = str(random.randint(100000, 999999))
 		EmailVerificationCode.objects.update_or_create(
@@ -233,30 +280,37 @@ class RequestEmailCodeView(APIView):
 			defaults={"code": code, "verified": False},
 		)
 
-		# Attempt to send real email (silently fails if SMTP not configured)
+		# Send OTP via Resend
 		try:
-			from django.core.mail import send_mail
-			send_mail(
-				subject="VentureLedger — Your Verification Code",
-				message=(
-					f"Hello {request.user.first_name or request.user.email},\n\n"
-					f"Your VentureLedger email verification code is:\n\n"
-					f"  {code}\n\n"
-					f"Enter this code in the app to continue. It expires when you request a new one.\n\n"
-					f"— VentureLedger Team"
-				),
-				from_email="noreply@ventureledger.com",
-				recipient_list=[request.user.email],
-				fail_silently=True,
-			)
+			resend.api_key = RESEND_API_KEY
+			name = request.user.first_name or request.user.email
+			resend.Emails.send({
+				"from": RESEND_FROM,
+				"to": [request.user.email],
+				"subject": "VentureLedger — Your Verification Code",
+				"html": f"""
+				<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb">
+				  <div style="background:linear-gradient(135deg,#1d4ed8,#7c3aed);padding:28px 24px;text-align:center">
+					<h1 style="color:#ffffff;margin:0;font-size:24px;font-weight:700">VentureLedger</h1>
+				  </div>
+				  <div style="padding:32px 28px;text-align:center">
+					<h2 style="margin:0 0 8px;color:#111827;font-size:20px">Your Verification Code</h2>
+					<p style="color:#6b7280;margin:0 0 28px;font-size:15px">Hello {name}, enter this code to verify your email address.</p>
+					<div style="background:#f0f4ff;border:2px dashed #6366f1;border-radius:12px;padding:24px;margin-bottom:24px;display:inline-block;min-width:220px">
+					  <span style="font-size:36px;font-weight:800;letter-spacing:0.35em;color:#1d4ed8;font-family:monospace">{code}</span>
+					</div>
+					<p style="color:#9ca3af;font-size:13px;margin:0">This code expires when you request a new one. Do not share it with anyone.</p>
+				  </div>
+				  <div style="background:#f9fafb;padding:14px 28px;border-top:1px solid #e5e7eb;text-align:center">
+					<p style="color:#9ca3af;font-size:12px;margin:0">&copy; 2025 VentureLedger. All rights reserved.</p>
+				  </div>
+				</div>
+				""",
+			})
 		except Exception:
-			pass
+			pass  # Email is best-effort; code is still saved in DB
 
-		response_data: dict = {"detail": "Verification code sent."}
-		# In DEBUG mode, include the code so it can be used without email
-		if getattr(settings, "DEBUG", False):
-			response_data["code"] = code
-
+		response_data: dict = {"detail": "Verification code sent to your email."}
 		return Response(response_data)
 
 

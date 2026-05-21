@@ -243,7 +243,7 @@ function App() {
   const [showEmailVerifyModal, setShowEmailVerifyModal] = useState(false)
   const [emailVerifyCode, setEmailVerifyCode] = useState('')
   const [emailVerifyError, setEmailVerifyError] = useState('')
-  const [debugOtpCode, setDebugOtpCode] = useState('')
+  const [emailResent, setEmailResent] = useState(false)
   const [emailVerifySubmitting, setEmailVerifySubmitting] = useState(false)
 
   // Password validation error (signup)
@@ -667,8 +667,8 @@ function App() {
       if (authMode === 'signup' && me.role !== 'admin') {
         // Show email verification modal first — then KYC
         try {
-          const codeRes = await requestEmailCode()
-          if (codeRes.code) setDebugOtpCode(codeRes.code)
+          await requestEmailCode()
+          setEmailResent(false)
         } catch {
           // Silently ignore — still show modal
         }
@@ -2992,12 +2992,7 @@ function App() {
             <div className="kyc-modal__header">
               <div className="kyc-modal__icon"><ShieldCheck size={28} /></div>
               <h2>Verify Your Email</h2>
-              <p>A 6-digit verification code has been generated for your account. Enter it below to continue.</p>
-              {debugOtpCode && (
-                <p style={{ color: 'var(--warning, #f59e0b)', fontSize: '0.82rem', marginTop: '10px', background: 'rgba(245,158,11,0.08)', padding: '8px 12px', borderRadius: '6px' }}>
-                  Demo mode — your code is: <strong style={{ letterSpacing: '0.15em' }}>{debugOtpCode}</strong>
-                </p>
-              )}
+              <p>We've sent a 6-digit verification code to <strong>{user.email}</strong>. Check your inbox and enter it below.</p>
             </div>
 
             <div className="kyc-modal__form" style={{ padding: '20px 24px 24px' }}>
@@ -3028,7 +3023,7 @@ function App() {
                     await verifyEmailCode(emailVerifyCode)
                     setShowEmailVerifyModal(false)
                     setEmailVerifyCode('')
-                    setDebugOtpCode('')
+                    setEmailResent(false)
                     setShowKycModal(true)
                   } catch (err: unknown) {
                     setEmailVerifyError(extractApiError(err, 'Invalid code. Please try again.'))
@@ -3040,21 +3035,38 @@ function App() {
                 {emailVerifySubmitting ? 'Verifying...' : 'Continue'}
               </button>
 
-              <button
-                type="button"
-                style={{ width: '100%', marginTop: '10px', background: 'none', border: 'none', color: 'var(--text-muted, #9ca3af)', cursor: 'pointer', fontSize: '0.8rem', padding: '4px' }}
-                onClick={async () => {
-                  try {
-                    const res = await requestEmailCode()
-                    if (res.code) setDebugOtpCode(res.code)
-                    toast('New code generated.', 'info')
-                  } catch {
-                    toast('Could not generate code. Please try again.', 'error')
-                  }
-                }}
-              >
-                Resend code
-              </button>
+              <div style={{ textAlign: 'center', marginTop: '14px' }}>
+                {emailResent && (
+                  <p style={{ color: '#22c55e', fontSize: '0.82rem', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                    <span>✓</span> Code sent — check your email inbox!
+                  </p>
+                )}
+                <button
+                  type="button"
+                  style={{
+                    background: 'none',
+                    border: `1.5px solid ${emailResent ? '#22c55e' : '#ef4444'}`,
+                    color: emailResent ? '#22c55e' : '#ef4444',
+                    borderRadius: '6px',
+                    padding: '6px 20px',
+                    cursor: 'pointer',
+                    fontSize: '0.82rem',
+                    fontWeight: 500,
+                    transition: 'all 0.3s ease',
+                  }}
+                  onClick={async () => {
+                    try {
+                      await requestEmailCode()
+                      setEmailResent(true)
+                      toast('Verification code sent to your email.', 'info')
+                    } catch {
+                      toast('Could not send code. Please try again.', 'error')
+                    }
+                  }}
+                >
+                  {emailResent ? '✓ Resend code' : 'Resend code'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

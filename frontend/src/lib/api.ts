@@ -238,7 +238,7 @@ export async function patchVerification(payload: FormData | Record<string, unkno
   return res.data as EntrepreneurVerification
 }
 
-export async function requestEmailCode(): Promise<{ detail: string; code?: string }> {
+export async function requestEmailCode(): Promise<{ detail: string }> {
   const res = await api.post('/auth/request-email-code/')
   return res.data as { detail: string; code?: string }
 }
