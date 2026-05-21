@@ -238,6 +238,16 @@ export async function patchVerification(payload: FormData | Record<string, unkno
   return res.data as EntrepreneurVerification
 }
 
+export async function requestEmailCode(): Promise<{ detail: string; code?: string }> {
+  const res = await api.post('/auth/request-email-code/')
+  return res.data as { detail: string; code?: string }
+}
+
+export async function verifyEmailCode(code: string): Promise<{ detail: string }> {
+  const res = await api.post('/auth/verify-email-code/', { code })
+  return res.data as { detail: string }
+}
+
 export async function reviewUserVerification(userId: number, payload: { status: 'approved' | 'rejected'; admin_message?: string }) {
   const res = await api.patch(`/auth/users/${userId}/verification/`, payload)
   return res.data as EntrepreneurVerification

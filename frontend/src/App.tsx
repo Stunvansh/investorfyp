@@ -69,11 +69,13 @@ import {
   patchProposal,
   patchUserFlags,
   register,
+  requestEmailCode,
   reviewUserVerification,
   saveTokens,
   sendMessage,
   updateProposalMilestone,
   updateSignalStatus,
+  verifyEmailCode,
 } from './lib/api'
 import type { ChatRoom, Message, Proposal, Signal, Tx, User } from './lib/api'
 import './App.css'
@@ -236,6 +238,16 @@ function App() {
   const [showAllTransactions, setShowAllTransactions] = useState(false)
   const [showKycModal, setShowKycModal] = useState(false)
   const [kycSubmitting, setKycSubmitting] = useState(false)
+
+  // Email verification flow (post-signup)
+  const [showEmailVerifyModal, setShowEmailVerifyModal] = useState(false)
+  const [emailVerifyCode, setEmailVerifyCode] = useState('')
+  const [emailVerifyError, setEmailVerifyError] = useState('')
+  const [debugOtpCode, setDebugOtpCode] = useState('')
+  const [emailVerifySubmitting, setEmailVerifySubmitting] = useState(false)
+
+  // Password validation error (signup)
+  const [passwordError, setPasswordError] = useState('')
   const [selectedEntrepreneurId, setSelectedEntrepreneurId] = useState<number | null>(null)
   const [showKycApprovedBanner, setShowKycApprovedBanner] = useState(false)
   const [proposalSubmitting, setProposalSubmitting] = useState(false)
@@ -616,9 +628,25 @@ function App() {
       })
   }, [])
 
+  /** Password strength validator — returns error string or '' if OK */
+  function validatePassword(password: string): string {
+    if (!/[A-Z]/.test(password)) return 'Password must contain at least one uppercase letter.'
+    if (!/[!@#$%^&*(),.?":{}|<>_\-+=~`[\]\\/]/.test(password)) return 'Password must contain at least one special character (e.g. ! @ # $ %).'
+    return ''
+  }
+
   async function onAuthSubmit(event: FormEvent) {
     event.preventDefault()
     setStatusText('')
+
+    // Validate password strength before submitting signup
+    if (authMode === 'signup') {
+      const pwErr = validatePassword(authForm.password)
+      if (pwErr) {
+        setPasswordError(pwErr)
+        return
+      }
+    }
 
     try {
       if (authMode === 'signup') {
@@ -637,7 +665,14 @@ function App() {
       }
       setStatusText('Authentication successful.')
       if (authMode === 'signup' && me.role !== 'admin') {
-        setShowKycModal(true)
+        // Show email verification modal first — then KYC
+        try {
+          const codeRes = await requestEmailCode()
+          if (codeRes.code) setDebugOtpCode(codeRes.code)
+        } catch {
+          // Silently ignore — still show modal
+        }
+        setShowEmailVerifyModal(true)
       } else {
         setPage(me.role === 'admin' ? 'admin' : 'dashboard')
       }
@@ -1497,7 +1532,20 @@ function App() {
                     </select>
                   )}
                   <input type="email" placeholder="Email" value={authForm.email} onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })} required />
-                  <input type="password" placeholder="Password" value={authForm.password} onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })} required />
+                  <input
+                    type="password"
+                    placeholder="Password"
+                    value={authForm.password}
+                    onChange={(e) => { setAuthForm({ ...authForm, password: e.target.value }); if (passwordError) setPasswordError('') }}
+                    onBlur={(e) => { if (authMode === 'signup') setPasswordError(validatePassword(e.target.value)) }}
+                    required
+                  />
+                  {authMode === 'signup' && passwordError && (
+                    <p style={{ color: 'var(--danger, #ef4444)', fontSize: '0.78rem', margin: '-6px 0 2px 0', lineHeight: '1.4' }}>{passwordError}</p>
+                  )}
+                  {authMode === 'signup' && !passwordError && (
+                    <p style={{ color: 'var(--text-muted, #9ca3af)', fontSize: '0.74rem', margin: '-6px 0 2px 0' }}>Min 8 chars • 1 uppercase • 1 special character</p>
+                  )}
                   <button type="submit" className="button-primary button-primary--full">Continue to Workspace</button>
                 </form>
 
@@ -2937,7 +2985,82 @@ function App() {
         </div>
       )}
 
-      {/* KYC MANDATORY ONBOARDING MODAL — shown after signup, cannot be dismissed */}
+      {/* ── EMAIL VERIFICATION MODAL — shown after signup, before KYC ── */}
+      {showEmailVerifyModal && user && (
+        <div className="kyc-modal-overlay">
+          <div className="kyc-modal">
+            <div className="kyc-modal__header">
+              <div className="kyc-modal__icon"><ShieldCheck size={28} /></div>
+              <h2>Verify Your Email</h2>
+              <p>A 6-digit verification code has been generated for your account. Enter it below to continue.</p>
+              {debugOtpCode && (
+                <p style={{ color: 'var(--warning, #f59e0b)', fontSize: '0.82rem', marginTop: '10px', background: 'rgba(245,158,11,0.08)', padding: '8px 12px', borderRadius: '6px' }}>
+                  Demo mode — your code is: <strong style={{ letterSpacing: '0.15em' }}>{debugOtpCode}</strong>
+                </p>
+              )}
+            </div>
+
+            <div className="kyc-modal__form" style={{ padding: '20px 24px 24px' }}>
+              <div className="field-group">
+                <label>Verification Code *</label>
+                <input
+                  type="text"
+                  placeholder="Enter 6-digit code"
+                  value={emailVerifyCode}
+                  onChange={(e) => { setEmailVerifyCode(e.target.value.replace(/\D/g, '').slice(0, 6)); setEmailVerifyError('') }}
+                  maxLength={6}
+                  style={{ textAlign: 'center', letterSpacing: '0.35em', fontSize: '1.3rem', fontWeight: 600 }}
+                  autoComplete="one-time-code"
+                />
+                {emailVerifyError && (
+                  <p style={{ color: 'var(--danger, #ef4444)', fontSize: '0.8rem', marginTop: '4px' }}>{emailVerifyError}</p>
+                )}
+              </div>
+
+              <button
+                type="button"
+                className="button-primary button-primary--full"
+                disabled={emailVerifySubmitting || emailVerifyCode.length !== 6}
+                onClick={async () => {
+                  setEmailVerifySubmitting(true)
+                  setEmailVerifyError('')
+                  try {
+                    await verifyEmailCode(emailVerifyCode)
+                    setShowEmailVerifyModal(false)
+                    setEmailVerifyCode('')
+                    setDebugOtpCode('')
+                    setShowKycModal(true)
+                  } catch (err: unknown) {
+                    setEmailVerifyError(extractApiError(err, 'Invalid code. Please try again.'))
+                  } finally {
+                    setEmailVerifySubmitting(false)
+                  }
+                }}
+              >
+                {emailVerifySubmitting ? 'Verifying...' : 'Continue'}
+              </button>
+
+              <button
+                type="button"
+                style={{ width: '100%', marginTop: '10px', background: 'none', border: 'none', color: 'var(--text-muted, #9ca3af)', cursor: 'pointer', fontSize: '0.8rem', padding: '4px' }}
+                onClick={async () => {
+                  try {
+                    const res = await requestEmailCode()
+                    if (res.code) setDebugOtpCode(res.code)
+                    toast('New code generated.', 'info')
+                  } catch {
+                    toast('Could not generate code. Please try again.', 'error')
+                  }
+                }}
+              >
+                Resend code
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* KYC MANDATORY ONBOARDING MODAL — shown after email verification, cannot be dismissed */}
       {showKycModal && user && (
         <div className="kyc-modal-overlay">
           <div className="kyc-modal">
@@ -2949,7 +3072,7 @@ function App() {
 
             <form onSubmit={onSubmitKycModal} className="kyc-modal__form">
 
-              {/* ── Required identity fields ── */}
+              {/* ── Required identity fields — ALL roles ── */}
               <div className="field-row field-row--two">
                 <div className="field-group">
                   <label>Phone Number *</label>
@@ -2969,6 +3092,7 @@ function App() {
                   <select
                     value={verificationForm.identity_type}
                     onChange={(e) => setVerificationForm({ ...verificationForm, identity_type: e.target.value as 'cnic' | 'passport' })}
+                    required
                   >
                     <option value="cnic">CNIC / National ID</option>
                     <option value="passport">Passport</option>
@@ -2996,11 +3120,33 @@ function App() {
                   />
                 </div>
                 <div className="field-group">
-                  <label>ID Front <span className="optional">(optional)</span></label>
+                  <label>ID Front *</label>
                   <input
                     type="file"
                     accept=".jpg,.jpeg,.png,.pdf"
+                    required
                     onChange={(e) => setVerificationFiles({ ...verificationFiles, identity_front: e.target.files?.[0] ?? null })}
+                  />
+                </div>
+              </div>
+
+              <div className="field-row field-row--two">
+                <div className="field-group">
+                  <label>ID Back *</label>
+                  <input
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    required
+                    onChange={(e) => setVerificationFiles({ ...verificationFiles, identity_back: e.target.files?.[0] ?? null })}
+                  />
+                </div>
+                <div className="field-group">
+                  <label>Passport Photo *</label>
+                  <input
+                    type="file"
+                    accept=".jpg,.jpeg,.png"
+                    required
+                    onChange={(e) => setVerificationFiles({ ...verificationFiles, passport_photo: e.target.files?.[0] ?? null })}
                   />
                 </div>
               </div>
@@ -3016,64 +3162,87 @@ function App() {
                 />
               </div>
 
-              {/* ── Social Media Links ── */}
-              <div className="kyc-modal__section">
-                <div className="kyc-modal__section-title">
-                  <Globe2 size={13} />
-                  <span>Social Media Links <span className="optional">(all optional)</span></span>
-                </div>
-                <div className="field-row field-row--two">
-                  <div className="field-group">
-                    <label>LinkedIn</label>
-                    <input
-                      placeholder="https://linkedin.com/in/..."
-                      value={verificationForm.linkedin_url}
-                      onChange={(e) => setVerificationForm({ ...verificationForm, linkedin_url: e.target.value })}
-                    />
+              {/* ── INVESTOR-ONLY: Bank Statement / Invoice ── */}
+              {user.role === 'investor' && (
+                <div className="kyc-modal__section">
+                  <div className="kyc-modal__section-title">
+                    <Landmark size={13} />
+                    <span>Financial Document</span>
                   </div>
                   <div className="field-group">
-                    <label>Instagram</label>
+                    <label>Bank Statement / Invoice * <span style={{ fontSize: '0.74rem', color: 'var(--text-muted, #9ca3af)' }}>(PDF, JPG or PNG)</span></label>
                     <input
-                      placeholder="https://instagram.com/..."
-                      value={verificationForm.instagram_url}
-                      onChange={(e) => setVerificationForm({ ...verificationForm, instagram_url: e.target.value })}
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      required
+                      onChange={(e) => setVerificationFiles({ ...verificationFiles, bank_statement: e.target.files?.[0] ?? null })}
                     />
+                    <span className="kyc-modal__file-hint">Upload a recent bank statement or invoice as proof of financial standing.</span>
                   </div>
                 </div>
-                <div className="field-group">
-                  <label>Facebook</label>
-                  <input
-                    placeholder="https://facebook.com/..."
-                    value={verificationForm.facebook_url}
-                    onChange={(e) => setVerificationForm({ ...verificationForm, facebook_url: e.target.value })}
-                  />
-                </div>
-              </div>
+              )}
 
-              {/* ── Business Proof Video ── */}
-              <div className="kyc-modal__section">
-                <div className="kyc-modal__section-title">
-                  <Video size={13} />
-                  <span>Business Proof Video <span className="optional">(optional)</span></span>
-                </div>
-                <div className="field-group">
-                  <label>Video Link</label>
-                  <input
-                    placeholder=""
-                    value={verificationForm.proof_video_url}
-                    onChange={(e) => setVerificationForm({ ...verificationForm, proof_video_url: e.target.value })}
-                  />
-                </div>
-                <div className="field-group">
-                  <label>Upload Video File <span className="optional">(MP4 / MOV / WebM · max 50 MB)</span></label>
-                  <input
-                    type="file"
-                    accept=".mp4,.mov,.webm,video/mp4,video/quicktime,video/webm"
-                    onChange={(e) => setVerificationFiles({ ...verificationFiles, proof_video_file: e.target.files?.[0] ?? null })}
-                  />
-                  <span className="kyc-modal__file-hint">Show your business / product in action. Admin reviewers will watch this.</span>
-                </div>
-              </div>
+              {/* ── ENTREPRENEUR-ONLY: Social Media + Proof Video ── */}
+              {user.role === 'entrepreneur' && (
+                <>
+                  <div className="kyc-modal__section">
+                    <div className="kyc-modal__section-title">
+                      <Globe2 size={13} />
+                      <span>Social Media Links <span className="optional">(optional)</span></span>
+                    </div>
+                    <div className="field-row field-row--two">
+                      <div className="field-group">
+                        <label>LinkedIn</label>
+                        <input
+                          placeholder="https://linkedin.com/in/..."
+                          value={verificationForm.linkedin_url}
+                          onChange={(e) => setVerificationForm({ ...verificationForm, linkedin_url: e.target.value })}
+                        />
+                      </div>
+                      <div className="field-group">
+                        <label>Instagram</label>
+                        <input
+                          placeholder="https://instagram.com/..."
+                          value={verificationForm.instagram_url}
+                          onChange={(e) => setVerificationForm({ ...verificationForm, instagram_url: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                    <div className="field-group">
+                      <label>Facebook</label>
+                      <input
+                        placeholder="https://facebook.com/..."
+                        value={verificationForm.facebook_url}
+                        onChange={(e) => setVerificationForm({ ...verificationForm, facebook_url: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="kyc-modal__section">
+                    <div className="kyc-modal__section-title">
+                      <Video size={13} />
+                      <span>Business Proof Video <span className="optional">(optional)</span></span>
+                    </div>
+                    <div className="field-group">
+                      <label>Video Link</label>
+                      <input
+                        placeholder=""
+                        value={verificationForm.proof_video_url}
+                        onChange={(e) => setVerificationForm({ ...verificationForm, proof_video_url: e.target.value })}
+                      />
+                    </div>
+                    <div className="field-group">
+                      <label>Upload Video File <span className="optional">(MP4 / MOV / WebM · max 50 MB)</span></label>
+                      <input
+                        type="file"
+                        accept=".mp4,.mov,.webm,video/mp4,video/quicktime,video/webm"
+                        onChange={(e) => setVerificationFiles({ ...verificationFiles, proof_video_file: e.target.files?.[0] ?? null })}
+                      />
+                      <span className="kyc-modal__file-hint">Show your business / product in action. Admin reviewers will watch this.</span>
+                    </div>
+                  </div>
+                </>
+              )}
 
               <div className="kyc-modal__note">
                 <ShieldCheck size={14} />

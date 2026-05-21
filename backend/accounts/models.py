@@ -98,6 +98,7 @@ class EntrepreneurVerification(models.Model):
 	identity_front = models.FileField(upload_to=verification_upload_path, validators=[identity_file_validator, validate_identity_file_size, validate_identity_file_content], blank=True)
 	identity_back = models.FileField(upload_to=verification_upload_path, validators=[identity_file_validator, validate_identity_file_size, validate_identity_file_content], blank=True)
 	passport_photo = models.FileField(upload_to=verification_upload_path, validators=[identity_file_validator, validate_identity_file_size, validate_identity_file_content], blank=True)
+	bank_statement = models.FileField(upload_to=verification_upload_path, validators=[identity_file_validator, validate_identity_file_size, validate_identity_file_content], blank=True)
 	startup_website_url = models.URLField(blank=True)
 	proof_video_url = models.URLField(blank=True)
 	proof_video_file = models.FileField(upload_to=verification_upload_path, validators=[video_file_validator, validate_video_file_size, validate_video_file_content], blank=True)
@@ -124,3 +125,14 @@ class EntrepreneurVerification(models.Model):
 
 	def __str__(self):
 		return f"Verification for {self.user.email}: {self.status}"
+
+
+class EmailVerificationCode(models.Model):
+	"""Stores a one-time 6-digit code for email verification after signup."""
+	user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="email_verification")
+	code = models.CharField(max_length=6)
+	verified = models.BooleanField(default=False)
+	created_at = models.DateTimeField(auto_now=True)
+
+	def __str__(self):
+		return f"EmailVerificationCode for {self.user.email} (verified={self.verified})"

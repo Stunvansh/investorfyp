@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import ValidationError
 
-from .models import EntrepreneurVerification, User
+from .models import EmailVerificationCode, EntrepreneurVerification, User
 from .serializers import (
 	AdminVerificationReviewSerializer,
 	EntrepreneurVerificationSerializer,
@@ -17,7 +17,7 @@ from .serializers import (
 )
 
 
-VERIFICATION_FILE_FIELDS = {"identity_front", "identity_back", "passport_photo", "proof_video_file"}
+VERIFICATION_FILE_FIELDS = {"identity_front", "identity_back", "passport_photo", "proof_video_file", "bank_statement"}
 
 
 class RegisterView(generics.CreateAPIView):
@@ -48,13 +48,13 @@ class VerificationView(APIView):
 		return verification
 
 	def get(self, request):
-		if request.user.role != User.Roles.ENTREPRENEUR:
-			return Response({"detail": "Verification profile is available for entrepreneurs only."}, status=403)
+		if request.user.role == User.Roles.ADMIN:
+			return Response({"detail": "Admins do not have a verification profile."}, status=403)
 		return Response(EntrepreneurVerificationSerializer(self.get_object(request.user), context={"request": request}).data)
 
 	def patch(self, request):
-		if request.user.role != User.Roles.ENTREPRENEUR:
-			return Response({"detail": "Only entrepreneurs can submit verification details."}, status=403)
+		if request.user.role == User.Roles.ADMIN:
+			return Response({"detail": "Admins cannot submit verification details."}, status=403)
 
 		verification = self.get_object(request.user)
 		serializer = EntrepreneurVerificationSerializer(
@@ -212,8 +212,74 @@ class DemoCredentialsView(APIView):
 				{
 					"role": "investor",
 					"email": "investor@demo.local",
-					"password": "DemoPass123!",
+					"password": "Investor@123",
 				},
 			],
 			"note": "Demo credentials for testing purposes only",
 		})
+
+
+class RequestEmailCodeView(APIView):
+	"""Generate and return a 6-digit email verification code for the authenticated user."""
+	permission_classes = [permissions.IsAuthenticated]
+
+	def post(self, request):
+		import random
+		from django.conf import settings
+
+		code = str(random.randint(100000, 999999))
+		EmailVerificationCode.objects.update_or_create(
+			user=request.user,
+			defaults={"code": code, "verified": False},
+		)
+
+		# Attempt to send real email (silently fails if SMTP not configured)
+		try:
+			from django.core.mail import send_mail
+			send_mail(
+				subject="VentureLedger — Your Verification Code",
+				message=(
+					f"Hello {request.user.first_name or request.user.email},\n\n"
+					f"Your VentureLedger email verification code is:\n\n"
+					f"  {code}\n\n"
+					f"Enter this code in the app to continue. It expires when you request a new one.\n\n"
+					f"— VentureLedger Team"
+				),
+				from_email="noreply@ventureledger.com",
+				recipient_list=[request.user.email],
+				fail_silently=True,
+			)
+		except Exception:
+			pass
+
+		response_data: dict = {"detail": "Verification code sent."}
+		# In DEBUG mode, include the code so it can be used without email
+		if getattr(settings, "DEBUG", False):
+			response_data["code"] = code
+
+		return Response(response_data)
+
+
+class VerifyEmailCodeView(APIView):
+	"""Verify the 6-digit code submitted by the user."""
+	permission_classes = [permissions.IsAuthenticated]
+
+	def post(self, request):
+		submitted_code = str(request.data.get("code", "")).strip()
+		if not submitted_code:
+			return Response({"detail": "Code is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+		try:
+			ev = EmailVerificationCode.objects.get(user=request.user)
+		except EmailVerificationCode.DoesNotExist:
+			return Response({"detail": "No code found. Please request a new one."}, status=status.HTTP_400_BAD_REQUEST)
+
+		if ev.verified:
+			return Response({"detail": "Email already verified."})
+
+		if ev.code != submitted_code:
+			return Response({"detail": "Invalid code. Please try again."}, status=status.HTTP_400_BAD_REQUEST)
+
+		ev.verified = True
+		ev.save(update_fields=["verified"])
+		return Response({"detail": "Email verified successfully."})

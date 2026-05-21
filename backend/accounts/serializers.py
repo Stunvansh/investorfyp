@@ -4,7 +4,7 @@ from .models import EntrepreneurVerification, User
 
 
 class EntrepreneurVerificationSerializer(serializers.ModelSerializer):
-    protected_file_fields = ["identity_front", "identity_back", "passport_photo", "proof_video_file"]
+    protected_file_fields = ["identity_front", "identity_back", "passport_photo", "proof_video_file", "bank_statement"]
 
     class Meta:
         model = EntrepreneurVerification
@@ -18,6 +18,7 @@ class EntrepreneurVerificationSerializer(serializers.ModelSerializer):
             "identity_front",
             "identity_back",
             "passport_photo",
+            "bank_statement",
             "startup_website_url",
             "proof_video_url",
             "proof_video_file",
@@ -67,6 +68,14 @@ class RegisterSerializer(serializers.ModelSerializer):
     def validate_role(self, value):
         if value == User.Roles.ADMIN:
             raise serializers.ValidationError("Admin role cannot be self-assigned.")
+        return value
+
+    def validate_password(self, value):
+        import re
+        if not re.search(r'[A-Z]', value):
+            raise serializers.ValidationError("Password must contain at least one uppercase letter.")
+        if not re.search(r'[!@#$%^&*(),.?\":{}|<>_\-+=~`\[\]\\/]', value):
+            raise serializers.ValidationError("Password must contain at least one special character (e.g. ! @ # $ %).")
         return value
 
     def create(self, validated_data):
