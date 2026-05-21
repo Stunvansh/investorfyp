@@ -58,6 +58,7 @@ export type EntrepreneurVerification = {
   identity_front?: string
   identity_back?: string
   passport_photo?: string
+  bank_statement?: string
   startup_website_url?: string
   proof_video_url?: string
   proof_video_file?: string

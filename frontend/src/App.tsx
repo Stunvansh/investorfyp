@@ -708,8 +708,16 @@ function App() {
     })
     data.append('submit', 'true')
     try {
+      // For investors: also save investment_interest and budget_range to the user profile
+      let updatedUser = user
+      if (user.role === 'investor') {
+        updatedUser = await patchMe({
+          investment_interest: user.investment_interest,
+          budget_range: user.budget_range,
+        })
+      }
       const verification = await patchVerification(data)
-      setUser({ ...user, verification, verified: verification.status === 'approved' })
+      setUser({ ...updatedUser, verification, verified: verification.status === 'approved' })
       setStatusText('KYC submitted for admin review. You can update details anytime from Settings.')
     } catch (err) {
       toast(extractApiError(err, 'KYC save failed. You can complete it later from Settings.'), 'error')
@@ -1621,6 +1629,60 @@ function App() {
                     <button type="submit" className="button-primary">Save Profile</button>
                   </form>
                 </article>
+
+                {user.role === 'investor' && (
+                  <article className="panel panel--form panel--span-2">
+                    <div className="panel-head">
+                      <div>
+                        <h3>Identity Verification Status</h3>
+                        <p>Track your KYC submission. Admin reviews submitted documents within 24–48 hours.</p>
+                      </div>
+                      <span className={`status-pill ${statusTone(verificationStatus(user))}`}>{verificationStatus(user)}</span>
+                    </div>
+                    {user.verification?.admin_message && (
+                      <div className="status-banner">
+                        <span>Admin message: {user.verification.admin_message}</span>
+                      </div>
+                    )}
+                    {verificationStatus(user) === 'approved' ? (
+                      <div className="verification-approved">
+                        <ShieldCheck size={36} className="verification-approved__icon" />
+                        <div>
+                          <h4>Identity Verification Approved</h4>
+                          <p>Your identity has been verified by admin. You now have full access to all platform features including making investments.</p>
+                        </div>
+                      </div>
+                    ) : verificationStatus(user) === 'submitted' ? (
+                      <div className="verification-approved" style={{ background: 'var(--surface-2, #f9fafb)' }}>
+                        <Clock3 size={36} className="verification-approved__icon" style={{ color: 'var(--warning, #f59e0b)' }} />
+                        <div>
+                          <h4>KYC Under Review</h4>
+                          <p>Your documents have been submitted and are awaiting admin review. You will be notified once approved.</p>
+                        </div>
+                      </div>
+                    ) : verificationStatus(user) === 'rejected' ? (
+                      <div className="verification-approved" style={{ background: 'var(--surface-2, #f9fafb)' }}>
+                        <XCircle size={36} className="verification-approved__icon" style={{ color: 'var(--danger, #ef4444)' }} />
+                        <div>
+                          <h4>KYC Rejected</h4>
+                          <p>Your KYC was rejected. Please contact support or resubmit your documents via the verification form.</p>
+                          {user.verification?.admin_message && <p style={{ marginTop: '0.5rem', fontWeight: 600 }}>Reason: {user.verification.admin_message}</p>}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="verification-approved" style={{ background: 'var(--surface-2, #f9fafb)' }}>
+                        <ShieldCheck size={36} className="verification-approved__icon" style={{ color: 'var(--text-muted, #9ca3af)' }} />
+                        <div>
+                          <h4>KYC Not Submitted</h4>
+                          <p>You have not completed your KYC verification yet. Complete the verification form to access all investment features.</p>
+                          <button type="button" className="button-primary" style={{ marginTop: '0.75rem' }} onClick={() => setShowKycModal(true)}>
+                            Start KYC Verification
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </article>
+                )}
 
                 {user.role === 'entrepreneur' && (
                   <article className="panel panel--form panel--span-2">
@@ -2878,10 +2940,34 @@ function App() {
                     <span>Budget Range</span>
                     <strong>{kycDetailTarget.budget_range || 'Not specified'}</strong>
                   </div>
-                  <div className="kyc-detail-full kyc-detail-note">
-                    <span>ℹ️ Note</span>
-                    <strong>Investor identity is verified manually. Use the Verify / Unverify toggle — no document upload is required for investors.</strong>
-                  </div>
+                  {kycDetailTarget.verification ? (
+                    <>
+                      <div><span>Phone</span><strong>{kycDetailTarget.verification.phone_number || '—'}</strong></div>
+                      <div><span>Identity Type</span><strong style={{ textTransform: 'capitalize' }}>{kycDetailTarget.verification.identity_type || '—'}</strong></div>
+                      <div><span>Identity Number</span><strong>{kycDetailTarget.verification.identity_number || '—'}</strong></div>
+                      <div className="kyc-detail-full"><span>Address</span><strong>{kycDetailTarget.verification.address || '—'}</strong></div>
+                      {kycDetailTarget.verification.identity_front && (
+                        <div><span>ID Front</span><strong><button type="button" className="text-button" onClick={() => onDownloadFile(kycDetailTarget.verification!.identity_front!, 'id-front')}>Download</button></strong></div>
+                      )}
+                      {kycDetailTarget.verification.identity_back && (
+                        <div><span>ID Back</span><strong><button type="button" className="text-button" onClick={() => onDownloadFile(kycDetailTarget.verification!.identity_back!, 'id-back')}>Download</button></strong></div>
+                      )}
+                      {kycDetailTarget.verification.passport_photo && (
+                        <div><span>Passport Photo</span><strong><button type="button" className="text-button" onClick={() => onDownloadFile(kycDetailTarget.verification!.passport_photo!, 'passport')}>Download</button></strong></div>
+                      )}
+                      {kycDetailTarget.verification.bank_statement && (
+                        <div><span>Bank Statement</span><strong><button type="button" className="text-button" onClick={() => onDownloadFile(kycDetailTarget.verification!.bank_statement!, 'bank-statement')}>Download</button></strong></div>
+                      )}
+                      {kycDetailTarget.verification.admin_message && (
+                        <div className="kyc-detail-full"><span>Last Admin Message</span><strong>{kycDetailTarget.verification.admin_message}</strong></div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="kyc-detail-full kyc-detail-note">
+                      <span>ℹ️ No KYC Submitted</span>
+                      <strong>This investor has not submitted their KYC form yet. You can still verify their account using the button below if needed.</strong>
+                    </div>
+                  )}
                 </>
               )}
 
@@ -3174,24 +3260,52 @@ function App() {
                 />
               </div>
 
-              {/* ── INVESTOR-ONLY: Bank Statement / Invoice ── */}
+              {/* ── INVESTOR-ONLY: Investment Profile + Bank Statement ── */}
               {user.role === 'investor' && (
-                <div className="kyc-modal__section">
-                  <div className="kyc-modal__section-title">
-                    <Landmark size={13} />
-                    <span>Financial Document</span>
+                <>
+                  <div className="kyc-modal__section">
+                    <div className="kyc-modal__section-title">
+                      <TrendingUp size={13} />
+                      <span>Investment Profile</span>
+                    </div>
+                    <div className="field-row field-row--two">
+                      <div className="field-group">
+                        <label>Investment Interest *</label>
+                        <input
+                          placeholder="e.g. Tech startups, FinTech, AgriTech"
+                          value={user.investment_interest || ''}
+                          onChange={(e) => setUser({ ...user, investment_interest: e.target.value })}
+                          required
+                        />
+                      </div>
+                      <div className="field-group">
+                        <label>Budget Range *</label>
+                        <input
+                          placeholder="e.g. $50,000 – $500,000"
+                          value={user.budget_range || ''}
+                          onChange={(e) => setUser({ ...user, budget_range: e.target.value })}
+                          required
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div className="field-group">
-                    <label>Bank Statement / Invoice * <span style={{ fontSize: '0.74rem', color: 'var(--text-muted, #9ca3af)' }}>(PDF, JPG or PNG)</span></label>
-                    <input
-                      type="file"
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      required
-                      onChange={(e) => setVerificationFiles({ ...verificationFiles, bank_statement: e.target.files?.[0] ?? null })}
-                    />
-                    <span className="kyc-modal__file-hint">Upload a recent bank statement or invoice as proof of financial standing.</span>
+                  <div className="kyc-modal__section">
+                    <div className="kyc-modal__section-title">
+                      <Landmark size={13} />
+                      <span>Financial Document</span>
+                    </div>
+                    <div className="field-group">
+                      <label>Bank Statement / Invoice * <span style={{ fontSize: '0.74rem', color: 'var(--text-muted, #9ca3af)' }}>(PDF, JPG or PNG)</span></label>
+                      <input
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        required
+                        onChange={(e) => setVerificationFiles({ ...verificationFiles, bank_statement: e.target.files?.[0] ?? null })}
+                      />
+                      <span className="kyc-modal__file-hint">Upload a recent bank statement or invoice as proof of financial standing.</span>
+                    </div>
                   </div>
-                </div>
+                </>
               )}
 
               {/* ── ENTREPRENEUR-ONLY: Social Media + Proof Video ── */}
