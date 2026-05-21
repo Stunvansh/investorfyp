@@ -35,6 +35,7 @@ import {
   Video,
   Wallet,
   XCircle,
+  CreditCard,
 } from 'lucide-react'
 
 import {
@@ -2168,41 +2169,6 @@ function App() {
                         <Wallet size={16} /> {walletForm.method === 'stripe' ? 'Pay with Card' : 'Fund Escrow'}
                       </button>
 
-                      {stripeClientSecret && (
-                        <div className="stripe-elements-wrapper">
-                          <p className="stripe-elements-label">💳 Enter card details to complete your investment</p>
-                          {STRIPE_PK ? (
-                            <Elements
-                              stripe={stripePromise}
-                              options={{
-                                clientSecret: stripeClientSecret,
-                                appearance: { theme: 'stripe', variables: { colorPrimary: '#6366f1', borderRadius: '8px' } },
-                              }}
-                            >
-                              <StripeCheckoutForm
-                                onSuccess={async () => {
-                                  // Tell the backend the payment succeeded so it creates the WalletTransaction
-                                  try {
-                                    await getPaymentStatus(pendingIntentId)
-                                  } catch {
-                                    /* non-fatal – webhook may have already synced it */
-                                  }
-                                  setStripeClientSecret('')
-                                  setPendingIntentId('')
-                                  if (user) await refreshAll(user)
-                                  setStatusText('✅ Payment successful! Your investment has been recorded.')
-                                }}
-                                onError={(msg) => setStatusText(`❌ ${msg}`)}
-                              />
-                            </Elements>
-                          ) : (
-                            <p className="field-hint" style={{ color: 'var(--danger)', fontSize: '0.875rem' }}>
-                              ⚠️ Stripe is not configured. Add VITE_STRIPE_PUBLIC_KEY to the frontend .env file.
-                            </p>
-                          )}
-                        </div>
-                      )}
-
                       {pendingIntentId && !stripeClientSecret && (
                         <div className="intent-box">
                           <span>Pending intent: {pendingIntentId}</span>
@@ -3100,6 +3066,70 @@ function App() {
                 {kycSubmitting ? 'Submitting KYC...' : 'Submit KYC & Enter Platform'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── STRIPE PAYMENT MODAL ── */}
+      {stripeClientSecret && (
+        <div className="kyc-modal-overlay" onClick={() => setStripeClientSecret('')}>
+          <div className="kyc-modal kyc-modal--stripe" onClick={(e) => e.stopPropagation()}>
+            <div className="kyc-modal__header">
+              <div className="kyc-modal__icon"><CreditCard size={24} /></div>
+              <h2>Complete Card Payment</h2>
+              <p>Review your investment details and enter your card information below.</p>
+            </div>
+
+            <div className="stripe-pay-body">
+              <div className="stripe-pay-summary">
+                <div>
+                  <span>Amount</span>
+                  <strong>{formatMoney(walletForm.amount)}</strong>
+                </div>
+                <div>
+                  <span>Proposal</span>
+                  <strong>{visibleApprovedProposals.find((p) => p.id === walletForm.proposal)?.title ?? `#${walletForm.proposal}`}</strong>
+                </div>
+              </div>
+
+              {STRIPE_PK ? (
+                <Elements
+                  stripe={stripePromise}
+                  options={{
+                    clientSecret: stripeClientSecret,
+                    appearance: { theme: 'stripe', variables: { colorPrimary: '#6366f1', borderRadius: '8px' } },
+                  }}
+                >
+                  <StripeCheckoutForm
+                    onSuccess={async () => {
+                      try {
+                        await getPaymentStatus(pendingIntentId)
+                      } catch {
+                        /* non-fatal – webhook may have already synced it */
+                      }
+                      setStripeClientSecret('')
+                      setPendingIntentId('')
+                      if (user) await refreshAll(user)
+                      toast('Payment successful! Your investment has been recorded.', 'success')
+                    }}
+                    onError={(msg) => toast(msg, 'error')}
+                  />
+                </Elements>
+              ) : (
+                <p style={{ color: 'var(--danger)', fontSize: '0.875rem', margin: '1rem 0' }}>
+                  ⚠️ Stripe is not configured. Add VITE_STRIPE_PUBLIC_KEY to the frontend .env file.
+                </p>
+              )}
+
+              <button
+                type="button"
+                className="button-secondary"
+                style={{ width: '100%', marginTop: '0.75rem' }}
+                onClick={() => setStripeClientSecret('')}
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

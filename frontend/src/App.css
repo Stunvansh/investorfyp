@@ -1401,6 +1401,47 @@ label {
   gap: 0;
 }
 
+/* ── Stripe payment modal ─────────────────────────── */
+.kyc-modal--stripe {
+  max-width: 460px;
+}
+
+.stripe-pay-body {
+  padding: 1.5rem 2rem 2rem;
+}
+
+.stripe-pay-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  background: var(--surface-low, #f6f7fb);
+  border-radius: 10px;
+  padding: 0.875rem 1rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--outline-soft, #e8eaf0);
+}
+
+.stripe-pay-summary > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.stripe-pay-summary > div span {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted, #6b7a99);
+}
+
+.stripe-pay-summary > div strong {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text, #1a2033);
+  word-break: break-word;
+}
+
 .ledger-stack {
   display: grid;
   gap: 0.75rem;
