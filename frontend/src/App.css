@@ -487,6 +487,32 @@ label {
   background: rgba(176, 69, 66, 0.07);
 }
 
+.action-menu__item--warning {
+  color: var(--warning);
+}
+
+.action-menu__item--warning:hover {
+  background: rgba(207, 138, 25, 0.08);
+}
+
+.action-menu__item--success {
+  color: var(--success);
+}
+
+.action-menu__item--success:hover {
+  background: rgba(29, 123, 82, 0.08);
+}
+
+.action-menu__trigger--alert {
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.action-menu__trigger--alert:hover {
+  background: rgba(207, 138, 25, 0.09);
+  color: var(--warning);
+}
+
 .action-menu__separator {
   height: 1px;
   background: var(--border);
@@ -2191,6 +2217,25 @@ label {
 }
 .kyc-detail-grid > div > strong { font-size: 0.9rem; }
 .kyc-detail-full { grid-column: 1 / -1; }
+.kyc-detail-note {
+  background: var(--surface-low);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  gap: 0.3rem;
+}
+.kyc-detail-note > span {
+  font-weight: 600;
+  font-size: 0.78rem;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+.kyc-detail-note > strong {
+  font-size: 0.82rem !important;
+  font-weight: normal;
+  color: var(--text-muted);
+}
 
 .kyc-detail-actions {
   display: flex;

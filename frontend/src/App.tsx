@@ -2464,21 +2464,7 @@ function App() {
                             </div>
                             <span>{formatDateTime(entry.date_joined)}</span>
                             <div className="user-actions">
-                              {/* Contextual primary button based on KYC state */}
-                              {verificationStatus(entry) === 'submitted' ? (
-                                <button type="button" className="button-secondary button-secondary--small button-secondary--warning" onClick={() => { setKycDetailTarget(entry); setShowKycDetailModal(true) }}>
-                                  Review KYC
-                                </button>
-                              ) : entry.frozen ? (
-                                <button type="button" className="button-secondary button-secondary--small button-secondary--danger" onClick={() => onToggleUserFlag(entry, 'frozen')}>
-                                  Unfreeze
-                                </button>
-                              ) : (
-                                <button type="button" className="button-secondary button-secondary--small" onClick={() => { setKycDetailTarget(entry); setShowKycDetailModal(true) }}>
-                                  View KYC
-                                </button>
-                              )}
-                              {/* Three-dot dropdown for all other actions */}
+                              {/* Single three-dot menu — all actions consolidated */}
                               <div
                                 className="action-menu"
                                 tabIndex={-1}
@@ -2486,19 +2472,21 @@ function App() {
                               >
                                 <button
                                   type="button"
-                                  className="action-menu__trigger"
+                                  className={`action-menu__trigger${verificationStatus(entry) === 'submitted' ? ' action-menu__trigger--alert' : ''}`}
                                   onClick={(e) => { e.stopPropagation(); setOpenActionMenu(openActionMenu === entry.id ? null : entry.id) }}
-                                  title="More actions"
+                                  title={verificationStatus(entry) === 'submitted' ? 'KYC pending review' : 'Actions'}
                                 >
                                   <MoreVertical size={15} />
                                 </button>
                                 {openActionMenu === entry.id && (
                                   <div className="action-menu__dropdown">
-                                    {verificationStatus(entry) !== 'submitted' && (
-                                      <button type="button" className="action-menu__item" onClick={() => { setKycDetailTarget(entry); setShowKycDetailModal(true); setOpenActionMenu(null) }}>
-                                        <Eye size={13} /> View KYC
-                                      </button>
-                                    )}
+                                    <button
+                                      type="button"
+                                      className={`action-menu__item${verificationStatus(entry) === 'submitted' ? ' action-menu__item--warning' : ''}`}
+                                      onClick={() => { setKycDetailTarget(entry); setShowKycDetailModal(true); setOpenActionMenu(null) }}
+                                    >
+                                      <Eye size={13} /> {verificationStatus(entry) === 'submitted' ? '⚠ Review KYC' : 'View KYC'}
+                                    </button>
                                     <button type="button" className="action-menu__item" onClick={() => { onToggleUserFlag(entry, 'verified'); setOpenActionMenu(null) }}>
                                       <BadgeCheck size={13} /> {entry.verified ? 'Unverify' : 'Verify'}
                                     </button>
@@ -2507,7 +2495,7 @@ function App() {
                                     </button>
                                     {verificationStatus(entry) === 'submitted' && (
                                       <>
-                                        <button type="button" className="action-menu__item" onClick={() => { onReviewVerification(entry, 'approved'); setOpenActionMenu(null) }}>
+                                        <button type="button" className="action-menu__item action-menu__item--success" onClick={() => { onReviewVerification(entry, 'approved'); setOpenActionMenu(null) }}>
                                           <BadgeCheck size={13} /> Approve KYC
                                         </button>
                                         <button type="button" className="action-menu__item action-menu__item--danger" onClick={() => { onReviewVerification(entry, 'rejected'); setOpenActionMenu(null) }}>
@@ -2835,36 +2823,101 @@ function App() {
                   Loading latest data…
                 </div>
               )}
-              <div><span>Status</span><strong className={`status-pill ${statusTone(verificationStatus(kycDetailTarget))}`}>{verificationStatus(kycDetailTarget)}</strong></div>
-              <div><span>Phone</span><strong>{kycDetailTarget.verification?.phone_number || 'N/A'}</strong></div>
-              <div><span>Identity Type</span><strong>{kycDetailTarget.verification?.identity_type || 'N/A'}</strong></div>
-              <div><span>Identity Number</span><strong>{kycDetailTarget.verification?.identity_number || 'N/A'}</strong></div>
-              <div className="kyc-detail-full"><span>Address</span><strong>{kycDetailTarget.verification?.address || 'N/A'}</strong></div>
-              <div><span>Startup Website</span><strong>{kycDetailTarget.verification?.startup_website_url ? <a href={kycDetailTarget.verification.startup_website_url} target="_blank" rel="noreferrer">{kycDetailTarget.verification.startup_website_url}</a> : 'N/A'}</strong></div>
-              <div><span>Proof Video URL</span><strong>{kycDetailTarget.verification?.proof_video_url ? <a href={kycDetailTarget.verification.proof_video_url} target="_blank" rel="noreferrer">Watch Video</a> : 'N/A'}</strong></div>
-              <div><span>LinkedIn</span><strong>{kycDetailTarget.verification?.linkedin_url ? <a href={kycDetailTarget.verification.linkedin_url} target="_blank" rel="noreferrer">LinkedIn ↗</a> : 'N/A'}</strong></div>
-              <div><span>Twitter/X</span><strong>{kycDetailTarget.verification?.twitter_url ? <a href={kycDetailTarget.verification.twitter_url} target="_blank" rel="noreferrer">Twitter ↗</a> : 'N/A'}</strong></div>
-              <div><span>Facebook</span><strong>{kycDetailTarget.verification?.facebook_url ? <a href={kycDetailTarget.verification.facebook_url} target="_blank" rel="noreferrer">Facebook ↗</a> : 'N/A'}</strong></div>
-              <div><span>Instagram</span><strong>{kycDetailTarget.verification?.instagram_url ? <a href={kycDetailTarget.verification.instagram_url} target="_blank" rel="noreferrer">Instagram ↗</a> : 'N/A'}</strong></div>
-              {kycDetailTarget.verification?.identity_front && (
-                <div><span>ID Front</span><strong><button type="button" className="text-button" onClick={() => onDownloadFile(kycDetailTarget.verification!.identity_front!, 'id-front')}>Download</button></strong></div>
+
+              {/* ── Common fields for every user ── */}
+              <div>
+                <span>Role</span>
+                <strong className="status-pill tone-neutral" style={{ fontSize: '0.75rem', textTransform: 'capitalize' }}>{kycDetailTarget.role}</strong>
+              </div>
+              <div>
+                <span>KYC Status</span>
+                <strong className={`status-pill ${statusTone(verificationStatus(kycDetailTarget))}`}>{verificationStatus(kycDetailTarget)}</strong>
+              </div>
+              <div>
+                <span>Account</span>
+                <strong>{kycDetailTarget.frozen ? '🔒 Frozen' : kycDetailTarget.verified ? '✅ Verified' : '⏳ Unverified'}</strong>
+              </div>
+
+              {/* ── INVESTOR section ── */}
+              {kycDetailTarget.role === 'investor' && (
+                <>
+                  <div className="kyc-detail-full">
+                    <span>Investment Interest</span>
+                    <strong>{kycDetailTarget.investment_interest || 'Not specified'}</strong>
+                  </div>
+                  <div>
+                    <span>Budget Range</span>
+                    <strong>{kycDetailTarget.budget_range || 'Not specified'}</strong>
+                  </div>
+                  <div className="kyc-detail-full kyc-detail-note">
+                    <span>ℹ️ Note</span>
+                    <strong>Investor identity is verified manually. Use the Verify / Unverify toggle — no document upload is required for investors.</strong>
+                  </div>
+                </>
               )}
-              {kycDetailTarget.verification?.identity_back && (
-                <div><span>ID Back</span><strong><button type="button" className="text-button" onClick={() => onDownloadFile(kycDetailTarget.verification!.identity_back!, 'id-back')}>Download</button></strong></div>
-              )}
-              {kycDetailTarget.verification?.passport_photo && (
-                <div><span>Passport Photo</span><strong><button type="button" className="text-button" onClick={() => onDownloadFile(kycDetailTarget.verification!.passport_photo!, 'passport')}>Download</button></strong></div>
-              )}
-              {kycDetailTarget.verification?.proof_video_file && (
-                <div><span>Proof Video File</span><strong><button type="button" className="text-button" onClick={() => onDownloadFile(kycDetailTarget.verification!.proof_video_file!, 'proof-video')}>Download</button></strong></div>
-              )}
-              {kycDetailTarget.verification?.admin_message && (
-                <div className="kyc-detail-full"><span>Last Admin Message</span><strong>{kycDetailTarget.verification.admin_message}</strong></div>
+
+              {/* ── ENTREPRENEUR section ── */}
+              {kycDetailTarget.role === 'entrepreneur' && (
+                <>
+                  <div><span>Phone</span><strong>{kycDetailTarget.verification?.phone_number || 'N/A'}</strong></div>
+                  <div><span>Identity Type</span><strong style={{ textTransform: 'capitalize' }}>{kycDetailTarget.verification?.identity_type || 'N/A'}</strong></div>
+                  <div><span>Identity Number</span><strong>{kycDetailTarget.verification?.identity_number || 'N/A'}</strong></div>
+                  <div className="kyc-detail-full"><span>Address</span><strong>{kycDetailTarget.verification?.address || 'N/A'}</strong></div>
+                  <div>
+                    <span>Startup Website</span>
+                    <strong>{kycDetailTarget.verification?.startup_website_url ? <a href={kycDetailTarget.verification.startup_website_url} target="_blank" rel="noreferrer">{kycDetailTarget.verification.startup_website_url}</a> : 'N/A'}</strong>
+                  </div>
+                  <div>
+                    <span>Proof Video URL</span>
+                    <strong>{kycDetailTarget.verification?.proof_video_url ? <a href={kycDetailTarget.verification.proof_video_url} target="_blank" rel="noreferrer">Watch Video ↗</a> : 'N/A'}</strong>
+                  </div>
+                  <div>
+                    <span>LinkedIn</span>
+                    <strong>{kycDetailTarget.verification?.linkedin_url ? <a href={kycDetailTarget.verification.linkedin_url} target="_blank" rel="noreferrer">LinkedIn ↗</a> : 'N/A'}</strong>
+                  </div>
+                  <div>
+                    <span>Twitter / X</span>
+                    <strong>{kycDetailTarget.verification?.twitter_url ? <a href={kycDetailTarget.verification.twitter_url} target="_blank" rel="noreferrer">Twitter ↗</a> : 'N/A'}</strong>
+                  </div>
+                  <div>
+                    <span>Facebook</span>
+                    <strong>{kycDetailTarget.verification?.facebook_url ? <a href={kycDetailTarget.verification.facebook_url} target="_blank" rel="noreferrer">Facebook ↗</a> : 'N/A'}</strong>
+                  </div>
+                  <div>
+                    <span>Instagram</span>
+                    <strong>{kycDetailTarget.verification?.instagram_url ? <a href={kycDetailTarget.verification.instagram_url} target="_blank" rel="noreferrer">Instagram ↗</a> : 'N/A'}</strong>
+                  </div>
+                  {kycDetailTarget.verification?.identity_front && (
+                    <div><span>ID Front</span><strong><button type="button" className="text-button" onClick={() => onDownloadFile(kycDetailTarget.verification!.identity_front!, 'id-front')}>Download</button></strong></div>
+                  )}
+                  {kycDetailTarget.verification?.identity_back && (
+                    <div><span>ID Back</span><strong><button type="button" className="text-button" onClick={() => onDownloadFile(kycDetailTarget.verification!.identity_back!, 'id-back')}>Download</button></strong></div>
+                  )}
+                  {kycDetailTarget.verification?.passport_photo && (
+                    <div><span>Passport Photo</span><strong><button type="button" className="text-button" onClick={() => onDownloadFile(kycDetailTarget.verification!.passport_photo!, 'passport')}>Download</button></strong></div>
+                  )}
+                  {kycDetailTarget.verification?.proof_video_file && (
+                    <div><span>Proof Video File</span><strong><button type="button" className="text-button" onClick={() => onDownloadFile(kycDetailTarget.verification!.proof_video_file!, 'proof-video')}>Download</button></strong></div>
+                  )}
+                  {kycDetailTarget.verification?.admin_message && (
+                    <div className="kyc-detail-full"><span>Last Admin Message</span><strong>{kycDetailTarget.verification.admin_message}</strong></div>
+                  )}
+                  {!kycDetailTarget.verification && (
+                    <div className="kyc-detail-full kyc-detail-note">
+                      <span>⚠️ No Submission</span>
+                      <strong>This entrepreneur has not submitted their KYC form yet.</strong>
+                    </div>
+                  )}
+                </>
               )}
             </div>
             <div className="kyc-detail-actions">
-              <button type="button" className="button-primary" onClick={() => { setShowKycDetailModal(false); onReviewVerification(kycDetailTarget, 'approved') }}>✅ Approve KYC</button>
-              <button type="button" className="button-secondary button-secondary--danger" onClick={() => { setShowKycDetailModal(false); onReviewVerification(kycDetailTarget, 'rejected') }}>❌ Reject KYC</button>
+              <button type="button" className="button-primary" onClick={() => { setShowKycDetailModal(false); onReviewVerification(kycDetailTarget, 'approved') }}>
+                ✅ {kycDetailTarget.role === 'investor' ? 'Verify User' : 'Approve KYC'}
+              </button>
+              <button type="button" className="button-secondary button-secondary--danger" onClick={() => { setShowKycDetailModal(false); onReviewVerification(kycDetailTarget, 'rejected') }}>
+                ❌ {kycDetailTarget.role === 'investor' ? 'Unverify User' : 'Reject KYC'}
+              </button>
               <button type="button" className="button-secondary" onClick={() => setShowKycDetailModal(false)}>Close</button>
             </div>
           </div>
