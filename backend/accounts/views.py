@@ -1,8 +1,12 @@
-import resend
+import logging
 
+from django.conf import settings
+from django.core.mail import send_mail
 from django.utils import timezone
 from django.http import FileResponse
 from rest_framework import generics, permissions, status
+
+logger = logging.getLogger(__name__)
 from django.shortcuts import get_object_or_404
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
@@ -11,8 +15,6 @@ from rest_framework.exceptions import ValidationError
 
 from .models import EmailVerificationCode, EntrepreneurVerification, User
 
-RESEND_API_KEY = "re_VvQD61sW_LaziW8rLqEvC5SXo3E3aiCZc"
-RESEND_FROM = "VentureLedger <onboarding@resend.dev>"
 from .serializers import (
 	AdminVerificationReviewSerializer,
 	EntrepreneurVerificationSerializer,
@@ -40,37 +42,39 @@ class RegisterView(generics.CreateAPIView):
 		role = request.data.get("role", "investor").capitalize()
 		if email:
 			try:
-				resend.api_key = RESEND_API_KEY
-				resend.Emails.send({
-					"from": RESEND_FROM,
-					"to": [email],
-					"subject": "Welcome to VentureLedger! 🎉",
-					"html": f"""
-					<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb">
-					  <div style="background:linear-gradient(135deg,#1d4ed8,#7c3aed);padding:32px 24px;text-align:center">
-						<h1 style="color:#ffffff;margin:0;font-size:26px;font-weight:700;letter-spacing:-0.5px">VentureLedger</h1>
-						<p style="color:rgba(255,255,255,0.8);margin:6px 0 0;font-size:14px">Your investment platform</p>
-					  </div>
-					  <div style="padding:32px 28px">
-						<h2 style="margin:0 0 8px;color:#111827;font-size:20px">Welcome, {first_name}! 👋</h2>
-						<p style="color:#6b7280;margin:0 0 24px;font-size:15px">Your <strong>{role}</strong> account has been created. Here are your login credentials:</p>
-						<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:20px;margin-bottom:24px">
-						  <table style="width:100%;border-collapse:collapse">
-							<tr><td style="padding:6px 0;color:#6b7280;font-size:14px;width:90px">Email</td><td style="padding:6px 0;color:#111827;font-weight:600;font-size:14px">{email}</td></tr>
-							<tr><td style="padding:6px 0;color:#6b7280;font-size:14px">Password</td><td style="padding:6px 0;color:#111827;font-weight:600;font-size:14px;font-family:monospace">{raw_password}</td></tr>
-							<tr><td style="padding:6px 0;color:#6b7280;font-size:14px">Role</td><td style="padding:6px 0;color:#111827;font-weight:600;font-size:14px">{role}</td></tr>
-						  </table>
-						</div>
-						<p style="color:#6b7280;font-size:13px;margin:0">Next step: verify your email address with the OTP code, then complete your KYC profile to access the platform.</p>
-					  </div>
-					  <div style="background:#f9fafb;padding:16px 28px;border-top:1px solid #e5e7eb;text-align:center">
-						<p style="color:#9ca3af;font-size:12px;margin:0">&copy; 2025 VentureLedger. All rights reserved.</p>
-					  </div>
+				welcome_html = f"""
+				<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb">
+				  <div style="background:linear-gradient(135deg,#1d4ed8,#7c3aed);padding:32px 24px;text-align:center">
+					<h1 style="color:#ffffff;margin:0;font-size:26px;font-weight:700;letter-spacing:-0.5px">VentureLedger</h1>
+					<p style="color:rgba(255,255,255,0.8);margin:6px 0 0;font-size:14px">Your investment platform</p>
+				  </div>
+				  <div style="padding:32px 28px">
+					<h2 style="margin:0 0 8px;color:#111827;font-size:20px">Welcome, {first_name}! 👋</h2>
+					<p style="color:#6b7280;margin:0 0 24px;font-size:15px">Your <strong>{role}</strong> account has been created. Here are your login credentials:</p>
+					<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:20px;margin-bottom:24px">
+					  <table style="width:100%;border-collapse:collapse">
+						<tr><td style="padding:6px 0;color:#6b7280;font-size:14px;width:90px">Email</td><td style="padding:6px 0;color:#111827;font-weight:600;font-size:14px">{email}</td></tr>
+						<tr><td style="padding:6px 0;color:#6b7280;font-size:14px">Password</td><td style="padding:6px 0;color:#111827;font-weight:600;font-size:14px;font-family:monospace">{raw_password}</td></tr>
+						<tr><td style="padding:6px 0;color:#6b7280;font-size:14px">Role</td><td style="padding:6px 0;color:#111827;font-weight:600;font-size:14px">{role}</td></tr>
+					  </table>
 					</div>
-					""",
-				})
-			except Exception:
-				pass  # Welcome email is best-effort; don't fail registration
+					<p style="color:#6b7280;font-size:13px;margin:0">Next step: verify your email address with the OTP code, then complete your KYC profile to access the platform.</p>
+				  </div>
+				  <div style="background:#f9fafb;padding:16px 28px;border-top:1px solid #e5e7eb;text-align:center">
+					<p style="color:#9ca3af;font-size:12px;margin:0">&copy; 2025 VentureLedger. All rights reserved.</p>
+				  </div>
+				</div>
+				"""
+				send_mail(
+					subject="Welcome to VentureLedger!",
+					message=f"Welcome to VentureLedger, {first_name}! Your {role} account is ready. Email: {email}",
+					from_email=settings.DEFAULT_FROM_EMAIL,
+					recipient_list=[email],
+					html_message=welcome_html,
+					fail_silently=False,
+				)
+			except Exception as e:
+				logger.error("[Email] Welcome email failed for %s: %s", email, e)
 		return response
 
 
@@ -280,35 +284,37 @@ class RequestEmailCodeView(APIView):
 			defaults={"code": code, "verified": False},
 		)
 
-		# Send OTP via Resend
+		# Send OTP via Gmail SMTP
 		try:
-			resend.api_key = RESEND_API_KEY
 			name = request.user.first_name or request.user.email
-			resend.Emails.send({
-				"from": RESEND_FROM,
-				"to": [request.user.email],
-				"subject": "VentureLedger — Your Verification Code",
-				"html": f"""
-				<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb">
-				  <div style="background:linear-gradient(135deg,#1d4ed8,#7c3aed);padding:28px 24px;text-align:center">
-					<h1 style="color:#ffffff;margin:0;font-size:24px;font-weight:700">VentureLedger</h1>
-				  </div>
-				  <div style="padding:32px 28px;text-align:center">
-					<h2 style="margin:0 0 8px;color:#111827;font-size:20px">Your Verification Code</h2>
-					<p style="color:#6b7280;margin:0 0 28px;font-size:15px">Hello {name}, enter this code to verify your email address.</p>
-					<div style="background:#f0f4ff;border:2px dashed #6366f1;border-radius:12px;padding:24px;margin-bottom:24px;display:inline-block;min-width:220px">
-					  <span style="font-size:36px;font-weight:800;letter-spacing:0.35em;color:#1d4ed8;font-family:monospace">{code}</span>
-					</div>
-					<p style="color:#9ca3af;font-size:13px;margin:0">This code expires when you request a new one. Do not share it with anyone.</p>
-				  </div>
-				  <div style="background:#f9fafb;padding:14px 28px;border-top:1px solid #e5e7eb;text-align:center">
-					<p style="color:#9ca3af;font-size:12px;margin:0">&copy; 2025 VentureLedger. All rights reserved.</p>
-				  </div>
+			otp_html = f"""
+			<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb">
+			  <div style="background:linear-gradient(135deg,#1d4ed8,#7c3aed);padding:28px 24px;text-align:center">
+				<h1 style="color:#ffffff;margin:0;font-size:24px;font-weight:700">VentureLedger</h1>
+			  </div>
+			  <div style="padding:32px 28px;text-align:center">
+				<h2 style="margin:0 0 8px;color:#111827;font-size:20px">Your Verification Code</h2>
+				<p style="color:#6b7280;margin:0 0 28px;font-size:15px">Hello {name}, enter this code to verify your email address.</p>
+				<div style="background:#f0f4ff;border:2px dashed #6366f1;border-radius:12px;padding:24px;margin-bottom:24px;display:inline-block;min-width:220px">
+				  <span style="font-size:36px;font-weight:800;letter-spacing:0.35em;color:#1d4ed8;font-family:monospace">{code}</span>
 				</div>
-				""",
-			})
-		except Exception:
-			pass  # Email is best-effort; code is still saved in DB
+				<p style="color:#9ca3af;font-size:13px;margin:0">This code expires when you request a new one. Do not share it with anyone.</p>
+			  </div>
+			  <div style="background:#f9fafb;padding:14px 28px;border-top:1px solid #e5e7eb;text-align:center">
+				<p style="color:#9ca3af;font-size:12px;margin:0">&copy; 2025 VentureLedger. All rights reserved.</p>
+			  </div>
+			</div>
+			"""
+			send_mail(
+				subject="VentureLedger — Your Verification Code",
+				message=f"Hello {name}, your VentureLedger verification code is: {code}",
+				from_email=settings.DEFAULT_FROM_EMAIL,
+				recipient_list=[request.user.email],
+				html_message=otp_html,
+				fail_silently=False,
+			)
+		except Exception as e:
+			logger.error("[Email] OTP email failed for %s: %s", request.user.email, e)
 
 		response_data: dict = {"detail": "Verification code sent to your email."}
 		return Response(response_data)
