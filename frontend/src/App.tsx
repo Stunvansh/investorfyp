@@ -911,22 +911,10 @@ function App() {
         term_months: walletForm.term_months,
         accepted_name: walletForm.accepted_name,
       })
-      if (walletForm.method === 'stripe') {
-        const intent = await createPaymentIntent({ proposal: walletForm.proposal, amount: walletForm.amount })
-        setPendingIntentId(intent.intent_id)
-        setStripeClientSecret(intent.client_secret)
-        setStatusText('Enter your card details below to complete the payment.')
-      } else {
-        await createTransaction({
-          proposal: walletForm.proposal,
-          amount: walletForm.amount,
-          action: 'invest',
-          method: 'virtual-escrow',
-          notes: 'Investor escrow funding',
-        })
-        if (user) await refreshAll(user)
-        setStatusText('Agreement accepted and funds held in escrow successfully.')
-      }
+      const intent = await createPaymentIntent({ proposal: walletForm.proposal, amount: walletForm.amount })
+      setPendingIntentId(intent.intent_id)
+      setStripeClientSecret(intent.client_secret)
+      setStatusText('Enter your card details below to complete the payment.')
     } catch (err: unknown) {
       setStripeClientSecret('')
       setPendingIntentId('')
@@ -2166,7 +2154,7 @@ function App() {
                       </label>
 
                       <button type="submit" className="button-primary button-primary--full">
-                        <Wallet size={16} /> {walletForm.method === 'stripe' ? 'Pay with Card' : 'Fund Escrow'}
+                        <Wallet size={16} /> Fund Escrow
                       </button>
 
                       {pendingIntentId && !stripeClientSecret && (
