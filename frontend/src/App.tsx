@@ -2548,11 +2548,38 @@ function App() {
                             <span>{formatMoney(proposal.required_funding)}</span>
                             <span className="status-pill tone-neutral">{proposal.category}</span>
                             <span className={`status-pill ${statusTone(proposal.status)}`}>{proposal.status}</span>
-                            <div className="row-actions">
-                              <button type="button" className="button-primary button-primary--small" onClick={() => onAdminApproveProposal(proposal.id)}>Approve</button>
-                              <button type="button" className="button-secondary button-secondary--small" onClick={() => onAdminSetPending(proposal.id)}>Pending</button>
-                              <button type="button" className="button-secondary button-secondary--small button-secondary--danger" onClick={() => onAdminRejectProposal(proposal.id)}>Reject</button>
-                              <button type="button" className="button-secondary button-secondary--small button-secondary--danger" onClick={() => onDeleteProposal(proposal.id)}><Trash2 size={14} /> Delete</button>
+                            <div className="user-actions">
+                              <div
+                                className="action-menu"
+                                tabIndex={-1}
+                                onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setOpenActionMenu(null) }}
+                              >
+                                <button
+                                  type="button"
+                                  className={`action-menu__trigger${proposal.status === 'pending' ? ' action-menu__trigger--alert' : ''}`}
+                                  onClick={(e) => { e.stopPropagation(); setOpenActionMenu(openActionMenu === proposal.id ? null : proposal.id) }}
+                                  title="Proposal actions"
+                                >
+                                  <MoreVertical size={15} />
+                                </button>
+                                {openActionMenu === proposal.id && (
+                                  <div className="action-menu__dropdown">
+                                    <button type="button" className="action-menu__item action-menu__item--success" onClick={() => { onAdminApproveProposal(proposal.id); setOpenActionMenu(null) }}>
+                                      <BadgeCheck size={13} /> Approve
+                                    </button>
+                                    <button type="button" className="action-menu__item" onClick={() => { onAdminSetPending(proposal.id); setOpenActionMenu(null) }}>
+                                      <Clock3 size={13} /> Set Pending
+                                    </button>
+                                    <button type="button" className="action-menu__item action-menu__item--danger" onClick={() => { onAdminRejectProposal(proposal.id); setOpenActionMenu(null) }}>
+                                      <XCircle size={13} /> Reject
+                                    </button>
+                                    <div className="action-menu__separator" />
+                                    <button type="button" className="action-menu__item action-menu__item--danger" onClick={() => { onDeleteProposal(proposal.id); setOpenActionMenu(null) }}>
+                                      <Trash2 size={13} /> Delete
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                         ))}
@@ -2825,53 +2852,56 @@ function App() {
               {/* ── ENTREPRENEUR section ── */}
               {kycDetailTarget.role === 'entrepreneur' && (
                 <>
-                  <div><span>Phone</span><strong>{kycDetailTarget.verification?.phone_number || 'N/A'}</strong></div>
-                  <div><span>Identity Type</span><strong style={{ textTransform: 'capitalize' }}>{kycDetailTarget.verification?.identity_type || 'N/A'}</strong></div>
-                  <div><span>Identity Number</span><strong>{kycDetailTarget.verification?.identity_number || 'N/A'}</strong></div>
-                  <div className="kyc-detail-full"><span>Address</span><strong>{kycDetailTarget.verification?.address || 'N/A'}</strong></div>
-                  <div>
-                    <span>Startup Website</span>
-                    <strong>{kycDetailTarget.verification?.startup_website_url ? <a href={kycDetailTarget.verification.startup_website_url} target="_blank" rel="noreferrer">{kycDetailTarget.verification.startup_website_url}</a> : 'N/A'}</strong>
-                  </div>
-                  <div>
-                    <span>Proof Video URL</span>
-                    <strong>{kycDetailTarget.verification?.proof_video_url ? <a href={kycDetailTarget.verification.proof_video_url} target="_blank" rel="noreferrer">Watch Video ↗</a> : 'N/A'}</strong>
-                  </div>
-                  <div>
-                    <span>LinkedIn</span>
-                    <strong>{kycDetailTarget.verification?.linkedin_url ? <a href={kycDetailTarget.verification.linkedin_url} target="_blank" rel="noreferrer">LinkedIn ↗</a> : 'N/A'}</strong>
-                  </div>
-                  <div>
-                    <span>Twitter / X</span>
-                    <strong>{kycDetailTarget.verification?.twitter_url ? <a href={kycDetailTarget.verification.twitter_url} target="_blank" rel="noreferrer">Twitter ↗</a> : 'N/A'}</strong>
-                  </div>
-                  <div>
-                    <span>Facebook</span>
-                    <strong>{kycDetailTarget.verification?.facebook_url ? <a href={kycDetailTarget.verification.facebook_url} target="_blank" rel="noreferrer">Facebook ↗</a> : 'N/A'}</strong>
-                  </div>
-                  <div>
-                    <span>Instagram</span>
-                    <strong>{kycDetailTarget.verification?.instagram_url ? <a href={kycDetailTarget.verification.instagram_url} target="_blank" rel="noreferrer">Instagram ↗</a> : 'N/A'}</strong>
-                  </div>
-                  {kycDetailTarget.verification?.identity_front && (
-                    <div><span>ID Front</span><strong><button type="button" className="text-button" onClick={() => onDownloadFile(kycDetailTarget.verification!.identity_front!, 'id-front')}>Download</button></strong></div>
-                  )}
-                  {kycDetailTarget.verification?.identity_back && (
-                    <div><span>ID Back</span><strong><button type="button" className="text-button" onClick={() => onDownloadFile(kycDetailTarget.verification!.identity_back!, 'id-back')}>Download</button></strong></div>
-                  )}
-                  {kycDetailTarget.verification?.passport_photo && (
-                    <div><span>Passport Photo</span><strong><button type="button" className="text-button" onClick={() => onDownloadFile(kycDetailTarget.verification!.passport_photo!, 'passport')}>Download</button></strong></div>
-                  )}
-                  {kycDetailTarget.verification?.proof_video_file && (
-                    <div><span>Proof Video File</span><strong><button type="button" className="text-button" onClick={() => onDownloadFile(kycDetailTarget.verification!.proof_video_file!, 'proof-video')}>Download</button></strong></div>
-                  )}
-                  {kycDetailTarget.verification?.admin_message && (
-                    <div className="kyc-detail-full"><span>Last Admin Message</span><strong>{kycDetailTarget.verification.admin_message}</strong></div>
-                  )}
-                  {!kycDetailTarget.verification && (
+                  {kycDetailTarget.verification ? (
+                    <>
+                      <div><span>Phone</span><strong>{kycDetailTarget.verification.phone_number || '—'}</strong></div>
+                      <div><span>Identity Type</span><strong style={{ textTransform: 'capitalize' }}>{kycDetailTarget.verification.identity_type || '—'}</strong></div>
+                      <div><span>Identity Number</span><strong>{kycDetailTarget.verification.identity_number || '—'}</strong></div>
+                      <div className="kyc-detail-full"><span>Address</span><strong>{kycDetailTarget.verification.address || '—'}</strong></div>
+                      <div>
+                        <span>Startup Website</span>
+                        <strong>{kycDetailTarget.verification.startup_website_url ? <a href={kycDetailTarget.verification.startup_website_url} target="_blank" rel="noreferrer">{kycDetailTarget.verification.startup_website_url}</a> : '—'}</strong>
+                      </div>
+                      <div>
+                        <span>Proof Video URL</span>
+                        <strong>{kycDetailTarget.verification.proof_video_url ? <a href={kycDetailTarget.verification.proof_video_url} target="_blank" rel="noreferrer">Watch Video ↗</a> : '—'}</strong>
+                      </div>
+                      <div>
+                        <span>LinkedIn</span>
+                        <strong>{kycDetailTarget.verification.linkedin_url ? <a href={kycDetailTarget.verification.linkedin_url} target="_blank" rel="noreferrer">LinkedIn ↗</a> : '—'}</strong>
+                      </div>
+                      <div>
+                        <span>Twitter / X</span>
+                        <strong>{kycDetailTarget.verification.twitter_url ? <a href={kycDetailTarget.verification.twitter_url} target="_blank" rel="noreferrer">Twitter ↗</a> : '—'}</strong>
+                      </div>
+                      <div>
+                        <span>Facebook</span>
+                        <strong>{kycDetailTarget.verification.facebook_url ? <a href={kycDetailTarget.verification.facebook_url} target="_blank" rel="noreferrer">Facebook ↗</a> : '—'}</strong>
+                      </div>
+                      <div>
+                        <span>Instagram</span>
+                        <strong>{kycDetailTarget.verification.instagram_url ? <a href={kycDetailTarget.verification.instagram_url} target="_blank" rel="noreferrer">Instagram ↗</a> : '—'}</strong>
+                      </div>
+                      {kycDetailTarget.verification.identity_front && (
+                        <div><span>ID Front</span><strong><button type="button" className="text-button" onClick={() => onDownloadFile(kycDetailTarget.verification!.identity_front!, 'id-front')}>Download</button></strong></div>
+                      )}
+                      {kycDetailTarget.verification.identity_back && (
+                        <div><span>ID Back</span><strong><button type="button" className="text-button" onClick={() => onDownloadFile(kycDetailTarget.verification!.identity_back!, 'id-back')}>Download</button></strong></div>
+                      )}
+                      {kycDetailTarget.verification.passport_photo && (
+                        <div><span>Passport Photo</span><strong><button type="button" className="text-button" onClick={() => onDownloadFile(kycDetailTarget.verification!.passport_photo!, 'passport')}>Download</button></strong></div>
+                      )}
+                      {kycDetailTarget.verification.proof_video_file && (
+                        <div><span>Proof Video File</span><strong><button type="button" className="text-button" onClick={() => onDownloadFile(kycDetailTarget.verification!.proof_video_file!, 'proof-video')}>Download</button></strong></div>
+                      )}
+                      {kycDetailTarget.verification.admin_message && (
+                        <div className="kyc-detail-full"><span>Last Admin Message</span><strong>{kycDetailTarget.verification.admin_message}</strong></div>
+                      )}
+                    </>
+                  ) : (
                     <div className="kyc-detail-full kyc-detail-note">
                       <span>⚠️ No Submission</span>
-                      <strong>This entrepreneur has not submitted their KYC form yet.</strong>
+                      <strong>This entrepreneur has not submitted their KYC form yet. You can still approve their account using the button below if needed.</strong>
                     </div>
                   )}
                 </>
