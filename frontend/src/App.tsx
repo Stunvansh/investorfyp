@@ -352,7 +352,7 @@ function App() {
     equity_percentage: '',
     profit_share_percentage: '',
     expected_return_note: 'Returns depend on startup performance, agreed milestones, and admin escrow settlement.',
-    term_months: 12,
+    term_months: 0,
     accepted_name: '',
     accept_terms: false,
   })
@@ -708,16 +708,8 @@ function App() {
     })
     data.append('submit', 'true')
     try {
-      // For investors: also save investment_interest and budget_range to the user profile
-      let updatedUser = user
-      if (user.role === 'investor') {
-        updatedUser = await patchMe({
-          investment_interest: user.investment_interest,
-          budget_range: user.budget_range,
-        })
-      }
       const verification = await patchVerification(data)
-      setUser({ ...updatedUser, verification, verified: verification.status === 'approved' })
+      setUser({ ...user, verification, verified: verification.status === 'approved' })
       setStatusText('KYC submitted for admin review. You can update details anytime from Settings.')
     } catch (err) {
       toast(extractApiError(err, 'KYC save failed. You can complete it later from Settings.'), 'error')
@@ -3238,15 +3230,17 @@ function App() {
                     onChange={(e) => setVerificationFiles({ ...verificationFiles, identity_back: e.target.files?.[0] ?? null })}
                   />
                 </div>
-                <div className="field-group">
-                  <label>Passport Photo *</label>
-                  <input
-                    type="file"
-                    accept=".jpg,.jpeg,.png"
-                    required
-                    onChange={(e) => setVerificationFiles({ ...verificationFiles, passport_photo: e.target.files?.[0] ?? null })}
-                  />
-                </div>
+                {user.role !== 'investor' && (
+                  <div className="field-group">
+                    <label>Passport Photo *</label>
+                    <input
+                      type="file"
+                      accept=".jpg,.jpeg,.png"
+                      required
+                      onChange={(e) => setVerificationFiles({ ...verificationFiles, passport_photo: e.target.files?.[0] ?? null })}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="field-group">
@@ -3260,52 +3254,24 @@ function App() {
                 />
               </div>
 
-              {/* ── INVESTOR-ONLY: Investment Profile + Bank Statement ── */}
+              {/* ── INVESTOR-ONLY: Bank Statement ── */}
               {user.role === 'investor' && (
-                <>
-                  <div className="kyc-modal__section">
-                    <div className="kyc-modal__section-title">
-                      <TrendingUp size={13} />
-                      <span>Investment Profile</span>
-                    </div>
-                    <div className="field-row field-row--two">
-                      <div className="field-group">
-                        <label>Investment Interest *</label>
-                        <input
-                          placeholder="e.g. Tech startups, FinTech, AgriTech"
-                          value={user.investment_interest || ''}
-                          onChange={(e) => setUser({ ...user, investment_interest: e.target.value })}
-                          required
-                        />
-                      </div>
-                      <div className="field-group">
-                        <label>Budget Range *</label>
-                        <input
-                          placeholder="e.g. $50,000 – $500,000"
-                          value={user.budget_range || ''}
-                          onChange={(e) => setUser({ ...user, budget_range: e.target.value })}
-                          required
-                        />
-                      </div>
-                    </div>
+                <div className="kyc-modal__section">
+                  <div className="kyc-modal__section-title">
+                    <Landmark size={13} />
+                    <span>Financial Document</span>
                   </div>
-                  <div className="kyc-modal__section">
-                    <div className="kyc-modal__section-title">
-                      <Landmark size={13} />
-                      <span>Financial Document</span>
-                    </div>
-                    <div className="field-group">
-                      <label>Bank Statement / Invoice * <span style={{ fontSize: '0.74rem', color: 'var(--text-muted, #9ca3af)' }}>(PDF, JPG or PNG)</span></label>
-                      <input
-                        type="file"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        required
-                        onChange={(e) => setVerificationFiles({ ...verificationFiles, bank_statement: e.target.files?.[0] ?? null })}
-                      />
-                      <span className="kyc-modal__file-hint">Upload a recent bank statement or invoice as proof of financial standing.</span>
-                    </div>
+                  <div className="field-group">
+                    <label>Bank Statement / Invoice * <span style={{ fontSize: '0.74rem', color: 'var(--text-muted, #9ca3af)' }}>(PDF, JPG or PNG)</span></label>
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      required
+                      onChange={(e) => setVerificationFiles({ ...verificationFiles, bank_statement: e.target.files?.[0] ?? null })}
+                    />
+                    <span className="kyc-modal__file-hint">Upload a recent bank statement or invoice as proof of financial standing.</span>
                   </div>
-                </>
+                </div>
               )}
 
               {/* ── ENTREPRENEUR-ONLY: Social Media + Proof Video ── */}
