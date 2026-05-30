@@ -135,6 +135,24 @@ export type Tx = {
   created_at: string
 }
 
+export type EscrowSummaryItem = {
+  proposal_id: number
+  title: string
+  entrepreneur_id: number
+  milestone: 'Not Started' | 'In Progress' | 'Completed'
+  invested_total: string
+  released_total: string
+  refunded_total: string
+  stage_cap_percent: string
+  max_release_now: string
+  escrow: string
+}
+
+export type EscrowSummary = {
+  total_escrow: string
+  proposals: EscrowSummaryItem[]
+}
+
 export type InvestmentAgreement = {
   id: number
   proposal: number
@@ -359,10 +377,7 @@ export async function getWalletBalance() {
 
 export async function getEscrowSummary() {
   const res = await api.get('/escrow-summary/')
-  return res.data as {
-    total_escrow: string
-    proposals: Array<{ proposal_id: number; title: string; escrow: string }>
-  }
+  return res.data as EscrowSummary
 }
 
 export async function getChatRooms() {

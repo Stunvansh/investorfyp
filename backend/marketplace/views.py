@@ -23,6 +23,13 @@ from .serializers import (
 )
 
 
+MILESTONE_RELEASE_CAPS = {
+	Proposal.Milestone.NOT_STARTED: Decimal("0.00"),
+	Proposal.Milestone.IN_PROGRESS: Decimal("0.60"),
+	Proposal.Milestone.COMPLETED: Decimal("1.00"),
+}
+
+
 def _current_escrow(proposal: Proposal) -> Decimal:
 	return WalletTransaction.escrow_for_proposal(proposal.id)
 
@@ -33,6 +40,37 @@ def _remaining_funding(proposal: Proposal) -> Decimal:
 		or Decimal("0")
 	)
 	return Decimal(proposal.required_funding) - invested
+
+
+def _proposal_ledger_totals(proposal: Proposal) -> dict[str, Decimal]:
+	totals = WalletTransaction.objects.filter(proposal=proposal).values("action").annotate(total=Sum("amount"))
+	mapped = {item["action"]: item["total"] or Decimal("0") for item in totals}
+	invested = mapped.get(WalletTransaction.Action.INVEST, Decimal("0"))
+	released = mapped.get(WalletTransaction.Action.RELEASE, Decimal("0"))
+	refunded = mapped.get(WalletTransaction.Action.REFUND, Decimal("0"))
+	escrow = invested - released - refunded
+	return {
+		"invested": invested,
+		"released": released,
+		"refunded": refunded,
+		"escrow": max(Decimal("0"), escrow),
+	}
+
+
+def _release_capacity_for_milestone(proposal: Proposal) -> dict[str, Decimal]:
+	ledger = _proposal_ledger_totals(proposal)
+	cap_percent = MILESTONE_RELEASE_CAPS.get(proposal.milestone, Decimal("0.00"))
+	stage_cap_amount = ledger["invested"] * cap_percent
+	remaining_by_stage = stage_cap_amount - ledger["released"]
+	max_release_now = min(ledger["escrow"], remaining_by_stage)
+	max_release_now = max(Decimal("0"), max_release_now)
+	return {
+		**ledger,
+		"cap_percent": cap_percent,
+		"stage_cap_amount": stage_cap_amount,
+		"remaining_by_stage": max(Decimal("0"), remaining_by_stage),
+		"max_release_now": max_release_now,
+	}
 
 
 def _client_ip(request) -> str | None:
@@ -345,10 +383,22 @@ class TransactionListCreateView(APIView):
 		elif action in {WalletTransaction.Action.RELEASE, WalletTransaction.Action.REFUND}:
 			if user.role != User.Roles.ADMIN:
 				raise PermissionDenied("Only admin can release or refund funds.")
+			if proposal.status != Proposal.Status.APPROVED:
+				raise ValidationError("Settlement actions are allowed only for approved proposals.")
+			if not str(notes).strip():
+				raise ValidationError("Admin notes are required for release/refund settlements.")
 
-			escrow = _current_escrow(proposal)
-			if amount > escrow:
+			settlement = _release_capacity_for_milestone(proposal)
+			if amount > settlement["escrow"]:
 				raise ValidationError("Amount exceeds current escrow.")
+			if action == WalletTransaction.Action.RELEASE:
+				max_release_now = settlement["max_release_now"]
+				if max_release_now <= 0:
+					raise ValidationError(
+						f"Release blocked by milestone policy. Milestone '{proposal.milestone}' currently allows no additional release."
+					)
+				if amount > max_release_now:
+					raise ValidationError(f"Release exceeds stage limit. Max releasable now is {max_release_now}.")
 
 			latest_investor_tx = WalletTransaction.objects.filter(proposal=proposal, action=WalletTransaction.Action.INVEST).order_by("-created_at").first()
 			if latest_investor_tx:
@@ -419,13 +469,20 @@ class EscrowSummaryView(APIView):
 		proposal_items = []
 		total_escrow = Decimal("0")
 		for proposal in proposals:
-			escrow = _current_escrow(proposal)
+			settlement = _release_capacity_for_milestone(proposal)
+			escrow = settlement["escrow"]
 			total_escrow += escrow
 			proposal_items.append(
 				{
 					"proposal_id": proposal.id,
 					"title": proposal.title,
 					"entrepreneur_id": proposal.entrepreneur_id,
+					"milestone": proposal.milestone,
+					"invested_total": settlement["invested"],
+					"released_total": settlement["released"],
+					"refunded_total": settlement["refunded"],
+					"stage_cap_percent": settlement["cap_percent"],
+					"max_release_now": settlement["max_release_now"],
 					"escrow": escrow,
 				}
 			)

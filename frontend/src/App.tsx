@@ -77,7 +77,7 @@ import {
   updateSignalStatus,
   verifyEmailCode,
 } from './lib/api'
-import type { ChatRoom, Message, Proposal, Signal, Tx, User } from './lib/api'
+import type { ChatRoom, EscrowSummary, Message, Proposal, Signal, Tx, User } from './lib/api'
 import './App.css'
 
 type Page = 'landing' | 'auth' | 'profile' | 'dashboard' | 'proposals' | 'wallet' | 'chat' | 'admin'
@@ -275,7 +275,7 @@ function App() {
     in_escrow: string
     available_balance: string
   } | null>(null)
-  const [escrowSummary, setEscrowSummary] = useState<{ total_escrow: string; proposals: Array<{ proposal_id: number; title: string; escrow: string }> } | null>(null)
+  const [escrowSummary, setEscrowSummary] = useState<EscrowSummary | null>(null)
   const [unreadTotal, setUnreadTotal] = useState(0)
 
   const [messageDraft, setMessageDraft] = useState('')
@@ -484,6 +484,10 @@ function App() {
         .some((value) => String(value).toLowerCase().includes(normalizedQuery))
     })
   }, [transactions, proposals, normalizedQuery])
+
+  const escrowSummaryByProposalId = useMemo(() => {
+    return new Map((escrowSummary?.proposals ?? []).map((item) => [item.proposal_id, item]))
+  }, [escrowSummary])
 
   const recentSystemLogs = useMemo(() => {
     const txLogs = transactions.slice(0, 8).map((transaction) => ({
@@ -969,16 +973,48 @@ function App() {
   }
 
   async function onAdminSettlement(proposalId: number, action: 'release' | 'refund') {
+    const proposalSummary = escrowSummaryByProposalId.get(proposalId)
+    const maxNow = Number(action === 'release' ? proposalSummary?.max_release_now : proposalSummary?.escrow)
+    if (!Number.isFinite(maxNow) || maxNow <= 0) {
+      setStatusText(action === 'release' ? '❌ Release is not allowed at the current milestone or escrow state.' : '❌ Refund is not allowed because there is no escrow left.')
+      return
+    }
+
+    const enteredAmount = window.prompt(
+      `Enter amount to ${action} (max ${formatMoney(maxNow)}):`,
+      String(Math.max(1, Math.floor(maxNow))),
+    )
+    if (!enteredAmount) return
+    const amount = Number(enteredAmount)
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setStatusText('❌ Please enter a valid positive amount.')
+      return
+    }
+    if (amount > maxNow) {
+      setStatusText(`❌ Amount exceeds current ${action === 'release' ? 'release limit' : 'escrow balance'}.`)
+      return
+    }
+
+    const noteInput = window.prompt(
+      `Add admin note for this ${action}:`,
+      action === 'release' ? 'Milestone reviewed and release approved.' : 'Investor refund approved after review.',
+    )
+    const notes = compactText(noteInput)
+    if (!notes) {
+      setStatusText('❌ Admin note is required for settlement actions.')
+      return
+    }
+
     try {
       await createTransaction({
         proposal: proposalId,
-        amount: 1000,
+        amount,
         action,
         method: 'virtual-escrow',
-        notes: `Admin ${action}`,
+        notes,
       })
       if (user) await refreshAll(user)
-      setStatusText(`Settlement action '${action}' completed.`)
+      setStatusText(`✅ Settlement action '${action}' completed.`)
     } catch (err) {
       toast(extractApiError(err, 'Settlement action failed.'), 'error')
     }
@@ -2724,6 +2760,9 @@ function App() {
                       <div className="table-shell__body">
                         {filteredEscrowTransactions.map((transaction) => {
                           const linkedProposal = proposals.find((proposal) => proposal.id === transaction.proposal)
+                          const proposalSummary = escrowSummaryByProposalId.get(transaction.proposal)
+                          const maxReleaseNow = Number(proposalSummary?.max_release_now ?? 0)
+                          const escrowNow = Number(proposalSummary?.escrow ?? 0)
                           return (
                             <div className="table-row table-row--admin-escrow" key={transaction.id}>
                               <span>TXN-{transaction.id}</span>
@@ -2731,15 +2770,34 @@ function App() {
                                 <div className="table-icon"><Wallet size={16} /></div>
                                 <div>
                                   <strong>{linkedProposal?.title || `Proposal #${transaction.proposal}`}</strong>
-                                  <p>{transaction.method}</p>
+                                  <p>{transaction.method} • {proposalSummary?.milestone ?? 'N/A'}</p>
+                                  <small>
+                                    Escrow: {formatMoney(proposalSummary?.escrow)} • Max release now: {formatMoney(proposalSummary?.max_release_now)}
+                                  </small>
                                 </div>
                               </div>
                               <span>{formatMoney(transaction.amount)}</span>
                               <span className={`status-pill ${actionTone(transaction.action)}`}>{transaction.action}</span>
                               <span>{formatDateTime(transaction.created_at)}</span>
                               <div className="row-actions">
-                                <button type="button" className="button-primary button-primary--small" onClick={() => onAdminSettlement(transaction.proposal, 'release')}>Release</button>
-                                <button type="button" className="button-secondary button-secondary--small button-secondary--danger" onClick={() => onAdminSettlement(transaction.proposal, 'refund')}>Refund</button>
+                                <button
+                                  type="button"
+                                  className="button-primary button-primary--small"
+                                  onClick={() => onAdminSettlement(transaction.proposal, 'release')}
+                                  disabled={maxReleaseNow <= 0}
+                                  title={maxReleaseNow <= 0 ? 'Release not allowed at current milestone or escrow state.' : undefined}
+                                >
+                                  Release
+                                </button>
+                                <button
+                                  type="button"
+                                  className="button-secondary button-secondary--small button-secondary--danger"
+                                  onClick={() => onAdminSettlement(transaction.proposal, 'refund')}
+                                  disabled={escrowNow <= 0}
+                                  title={escrowNow <= 0 ? 'No escrow available to refund.' : undefined}
+                                >
+                                  Refund
+                                </button>
                               </div>
                             </div>
                           )

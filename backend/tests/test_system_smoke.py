@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.test import TestCase
 from rest_framework.test import APIClient
 
@@ -286,3 +288,157 @@ class SystemSmokeTests(TestCase):
             format="json",
         )
         self.assertEqual(allowed_resp.status_code, 201)
+
+    def test_admin_release_respects_milestone_caps_and_requires_notes(self):
+        entrepreneur = User.objects.create_user(email="milestone-founder@test.com", password="Pass12345!", role="entrepreneur", verified=True)
+        investor = User.objects.create_user(email="milestone-investor@test.com", password="Pass12345!", role="investor", verified=True)
+        admin = User.objects.create_user(email="milestone-admin@test.com", password="Pass12345!", role="admin")
+
+        founder_client = self.auth_client(entrepreneur.email, "Pass12345!")
+        investor_client = self.auth_client(investor.email, "Pass12345!")
+        admin_client = self.auth_client(admin.email, "Pass12345!")
+
+        proposal_resp = founder_client.post(
+            "/api/proposals/",
+            {
+                "title": "Milestone Controlled Escrow",
+                "startup_details": "Admin should release by stage",
+                "category": "SaaS",
+                "required_funding": "10000",
+                "document_name": "milestone.pdf",
+            },
+            format="json",
+        )
+        self.assertEqual(proposal_resp.status_code, 201)
+        proposal_id = proposal_resp.data["id"]
+        self.assertEqual(admin_client.post(f"/api/proposals/{proposal_id}/approve/").status_code, 200)
+
+        agreement_resp = investor_client.post(
+            "/api/agreements/",
+            {
+                "proposal": proposal_id,
+                "amount": "1000",
+                "payment_method": "virtual-escrow",
+                "accepted_name": "Milestone Investor",
+            },
+            format="json",
+        )
+        self.assertEqual(agreement_resp.status_code, 201)
+
+        invest_resp = investor_client.post(
+            "/api/transactions/",
+            {
+                "proposal": proposal_id,
+                "amount": "1000",
+                "action": "invest",
+                "method": "virtual-escrow",
+            },
+            format="json",
+        )
+        self.assertEqual(invest_resp.status_code, 201)
+
+        blocked_not_started = admin_client.post(
+            "/api/transactions/",
+            {
+                "proposal": proposal_id,
+                "amount": "100",
+                "action": "release",
+                "method": "virtual-escrow",
+                "notes": "Stage-gated release attempt",
+            },
+            format="json",
+        )
+        self.assertEqual(blocked_not_started.status_code, 400)
+        self.assertIn("milestone", str(blocked_not_started.data).lower())
+
+        self.assertEqual(
+            founder_client.post(
+                f"/api/proposals/{proposal_id}/set_milestone/",
+                {"milestone": "In Progress"},
+                format="json",
+            ).status_code,
+            200,
+        )
+
+        missing_notes_resp = admin_client.post(
+            "/api/transactions/",
+            {
+                "proposal": proposal_id,
+                "amount": "100",
+                "action": "release",
+                "method": "virtual-escrow",
+            },
+            format="json",
+        )
+        self.assertEqual(missing_notes_resp.status_code, 400)
+        self.assertIn("notes", str(missing_notes_resp.data).lower())
+
+        release_60_resp = admin_client.post(
+            "/api/transactions/",
+            {
+                "proposal": proposal_id,
+                "amount": "600",
+                "action": "release",
+                "method": "virtual-escrow",
+                "notes": "Milestone in progress - tranche 1",
+            },
+            format="json",
+        )
+        self.assertEqual(release_60_resp.status_code, 201)
+
+        above_stage_cap_resp = admin_client.post(
+            "/api/transactions/",
+            {
+                "proposal": proposal_id,
+                "amount": "1",
+                "action": "release",
+                "method": "virtual-escrow",
+                "notes": "Try to exceed stage cap",
+            },
+            format="json",
+        )
+        self.assertEqual(above_stage_cap_resp.status_code, 400)
+        self.assertIn("release", str(above_stage_cap_resp.data).lower())
+
+        self.assertEqual(
+            founder_client.post(
+                f"/api/proposals/{proposal_id}/set_milestone/",
+                {"milestone": "Completed"},
+                format="json",
+            ).status_code,
+            200,
+        )
+
+        final_release_resp = admin_client.post(
+            "/api/transactions/",
+            {
+                "proposal": proposal_id,
+                "amount": "400",
+                "action": "release",
+                "method": "virtual-escrow",
+                "notes": "Final release after completion",
+            },
+            format="json",
+        )
+        self.assertEqual(final_release_resp.status_code, 201)
+
+        refund_without_escrow = admin_client.post(
+            "/api/transactions/",
+            {
+                "proposal": proposal_id,
+                "amount": "1",
+                "action": "refund",
+                "method": "virtual-escrow",
+                "notes": "No escrow left",
+            },
+            format="json",
+        )
+        self.assertEqual(refund_without_escrow.status_code, 400)
+        self.assertIn("escrow", str(refund_without_escrow.data).lower())
+
+        escrow_summary_resp = admin_client.get("/api/escrow-summary/")
+        self.assertEqual(escrow_summary_resp.status_code, 200)
+        target_item = next((item for item in escrow_summary_resp.data["proposals"] if item["proposal_id"] == proposal_id), None)
+        self.assertIsNotNone(target_item)
+        self.assertIn("max_release_now", target_item)
+        self.assertEqual(target_item["max_release_now"], Decimal("0"))
